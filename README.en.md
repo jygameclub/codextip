@@ -73,7 +73,7 @@ Local builds use an ad-hoc signature for use on your own Mac. Distributing a com
 
 ## Settings and language
 
-Click the menu bar quota, then **Settings / 设置**.
+Click the menu bar quota, then **Settings / 设置 in the top-right corner**. Settings is available on both Quota and Local tokens; the button stays visible while scrolling local history.
 
 | Setting | Options |
 | --- | --- |

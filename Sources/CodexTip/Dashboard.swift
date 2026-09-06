@@ -46,7 +46,17 @@ final class DashboardController: NSViewController {
         let tabs = NSSegmentedControl(labels: [L10n.text("订阅额度", "Quota"), L10n.text("本地 Token", "Local tokens")], trackingMode: .selectOne, target: self, action: #selector(tabChanged(_:)))
         tabs.selectedSegment = showsLocalTokens ? 1 : 0
         tabs.segmentDistribution = .fillEqually
-        add(tabs)
+        // Shared controls stay outside either page's scrolling content.
+        let settings = NSButton(title: L10n.text("设置", "Settings"), target: self, action: #selector(settingsClicked(_:)))
+        settings.bezelStyle = .rounded
+        settings.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
+        settings.imagePosition = .imageLeading
+        settings.setContentHuggingPriority(.required, for: .horizontal)
+        settings.setContentCompressionResistancePriority(.required, for: .horizontal)
+        tabs.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let header = NSStackView(views: [tabs, settings])
+        header.orientation = .horizontal; header.alignment = .centerY; header.spacing = 10; header.distribution = .fill
+        add(header)
         if showsLocalTokens {
             let panel = localPanel.view
             localPanel.rebuild()
@@ -136,11 +146,7 @@ final class DashboardController: NSViewController {
         refresh.bezelStyle = .rounded; refresh.isEnabled = !app.refreshing
         refresh.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: nil)
         refresh.imagePosition = .imageLeading
-        let settings = NSButton(title: L10n.text("设置", "Settings"), target: self, action: #selector(settingsClicked(_:)))
-        settings.bezelStyle = .rounded
-        settings.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
-        settings.imagePosition = .imageLeading
-        add(row(refresh, settings))
+        add(refresh)
         finishLayout(stack)
     }
 
