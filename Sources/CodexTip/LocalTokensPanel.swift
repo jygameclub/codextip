@@ -10,6 +10,8 @@ final class LocalTokensController: NSViewController {
     private var period: LocalTokenPeriod = .week
     var onPeriodChange: (() -> Void)?
     private var heightConstraint: NSLayoutConstraint?
+    private lazy var picker = NSSegmentedControl(labels: LocalTokenPeriod.allCases.map(\.label), trackingMode: .selectOne,
+                                                  target: self, action: #selector(periodChanged(_:)))
     init(app: AppController) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func loadView() { view = LocalTokenContentView(frame: NSRect(x: 0, y: 0, width: 346, height: 560)); rebuild() }
@@ -29,7 +31,7 @@ final class LocalTokensController: NSViewController {
         add(text(L10n.text("本机用量趋势", "On-device usage"), size: 17, weight: .semibold))
         add(text(L10n.text("本地日志 · 所有账号合计 · 离线可读", "Local logs · All accounts combined · Available offline"), size: 10, color: .secondaryLabelColor))
         let periods = LocalTokenPeriod.allCases
-        let picker = NSSegmentedControl(labels: periods.map(\.label), trackingMode: .selectOne, target: self, action: #selector(periodChanged(_:)))
+        for (index, value) in periods.enumerated() { picker.setLabel(value.label, forSegment: index) }
         picker.selectedSegment = periods.firstIndex(of: period) ?? 1
         picker.segmentDistribution = .fillEqually
         add(picker)

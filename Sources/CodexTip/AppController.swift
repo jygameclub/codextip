@@ -64,7 +64,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         statusItem.button?.imageScaling = .scaleNone
         statusItem.button?.setAccessibilityLabel(L10n.text("Codex 额度", "Codex quota"))
         dashboard = DashboardController(app: self)
-        popover.contentViewController = dashboard
+        dashboard.attach(to: popover)
         popover.behavior = .transient
         popover.animates = false
         redraw()

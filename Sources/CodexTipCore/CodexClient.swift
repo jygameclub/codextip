@@ -35,7 +35,7 @@ public final class CodexClient {
         let connection = try Connection(path: path, timeout: timeout)
         defer { connection.close() }
         _ = try connection.request(id: 1, method: "initialize", params: [
-            "clientInfo": ["name": "codextip", "title": "CodexTip", "version": "1.6.1"],
+            "clientInfo": ["name": "codextip", "title": "CodexTip", "version": "1.6.2"],
             "capabilities": [:] as [String: Any]
         ])
         try connection.send(["method": "initialized", "params": [:] as [String: Any]])

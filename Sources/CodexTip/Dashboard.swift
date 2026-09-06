@@ -15,6 +15,11 @@ final class DashboardController: NSViewController {
     private unowned let app: AppController
     var showsLocalTokens = false
     private var localScroll: NSScrollView?
+    private weak var hostPopover: NSPopover?
+    private let stack = NSStackView()
+    private let header = NSStackView()
+    private lazy var tabs = NSSegmentedControl(labels: ["", ""], trackingMode: .selectOne, target: self, action: #selector(tabChanged(_:)))
+    private lazy var settings = NSButton(title: "", target: self, action: #selector(settingsClicked(_:)))
     private lazy var localPanel: LocalTokensController = {
         let panel = LocalTokensController(app: app)
         panel.onPeriodChange = { [weak self] in self?.rebuild() }
@@ -22,14 +27,8 @@ final class DashboardController: NSViewController {
     }()
     init(app: AppController) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    override func loadView() { view = DashboardBackground(frame: NSRect(x: 0, y: 0, width: 390, height: 580)); rebuild() }
-
-    func rebuild() {
-        guard isViewLoaded else { return }
-        let scrollOffset = localScroll?.contentView.bounds.origin.y ?? 0
-        localScroll = nil
-        view.subviews.forEach { $0.removeFromSuperview() }
-        let stack = NSStackView()
+    override func loadView() {
+        view = DashboardBackground(frame: NSRect(x: 0, y: 0, width: 390, height: 580))
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
@@ -38,25 +37,46 @@ final class DashboardController: NSViewController {
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -22),
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 22)
         ])
-        func add(_ child: NSView) {
-            stack.addArrangedSubview(child)
-            child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        }
-
-        let tabs = NSSegmentedControl(labels: [L10n.text("订阅额度", "Quota"), L10n.text("本地 Token", "Local tokens")], trackingMode: .selectOne, target: self, action: #selector(tabChanged(_:)))
-        tabs.selectedSegment = showsLocalTokens ? 1 : 0
         tabs.segmentDistribution = .fillEqually
-        // Shared controls stay outside either page's scrolling content.
-        let settings = NSButton(title: L10n.text("设置", "Settings"), target: self, action: #selector(settingsClicked(_:)))
+        tabs.setContentHuggingPriority(.defaultLow, for: .horizontal)
         settings.bezelStyle = .rounded
         settings.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
         settings.imagePosition = .imageLeading
         settings.setContentHuggingPriority(.required, for: .horizontal)
         settings.setContentCompressionResistancePriority(.required, for: .horizontal)
-        tabs.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let header = NSStackView(views: [tabs, settings])
         header.orientation = .horizontal; header.alignment = .centerY; header.spacing = 10; header.distribution = .fill
-        add(header)
+        header.addArrangedSubview(tabs); header.addArrangedSubview(settings)
+        stack.addArrangedSubview(header)
+        header.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        rebuild()
+    }
+
+    /// NSPopover does not follow preferredContentSize automatically. Keep the host's
+    /// window geometry in sync, including while switching tabs in an already open popup.
+    func attach(to popover: NSPopover) {
+        hostPopover = popover
+        popover.contentViewController = self
+        _ = view
+        popover.contentSize = preferredContentSize
+    }
+
+    func rebuild() {
+        guard isViewLoaded else { return }
+        let scrollOffset = localScroll?.contentView.bounds.origin.y ?? 0
+        localScroll = nil
+        // Preserve live navigation controls through actions and timer-driven refreshes.
+        for child in stack.arrangedSubviews where child !== header {
+            stack.removeArrangedSubview(child)
+            child.removeFromSuperview()
+        }
+        tabs.setLabel(L10n.text("订阅额度", "Quota"), forSegment: 0)
+        tabs.setLabel(L10n.text("本地 Token", "Local tokens"), forSegment: 1)
+        tabs.selectedSegment = showsLocalTokens ? 1 : 0
+        settings.title = L10n.text("设置", "Settings")
+        func add(_ child: NSView) {
+            stack.addArrangedSubview(child)
+            child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
         if showsLocalTokens {
             let panel = localPanel.view
             localPanel.rebuild()
@@ -154,6 +174,11 @@ final class DashboardController: NSViewController {
         view.layoutSubtreeIfNeeded()
         let height = stack.fittingSize.height + 44
         preferredContentSize = NSSize(width: 390, height: height)
+        // Resize the enclosing popup as well as the view: growing only the view
+        // draws the header outside the old window's hit-testable content area.
+        if let hostPopover, hostPopover.contentSize != preferredContentSize {
+            hostPopover.contentSize = preferredContentSize
+        }
         view.setFrameSize(preferredContentSize)
         view.layoutSubtreeIfNeeded()
     }

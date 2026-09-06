@@ -203,6 +203,8 @@ swift test
 
 测试覆盖近期消耗、采样边界、重置、缺口、账户隔离、历史存储权限、协议握手、超时、语言切换和旧版设置兼容。`--check` 只读一次实际额度，不写历史。本地用量测试覆盖累计去重、缓存与推理子集、归档/子任务、日志续读与重写、时区和夏令时。
 
+面板切换会同步调整弹窗尺寸，页签和设置按钮在刷新后仍保持可点击。离屏 AppKit 交互测试覆盖中英文页签反复切换、历史时间范围切换、刷新及滚动后的按钮命中区域；使用演示数据，不显示窗口、不读取真实账号。
+
 离线诊断（仅输出聚合数字，不写索引、不连接账号）：
 
 ```bash
@@ -229,7 +231,8 @@ CLI 的 `--language zh|en` 仅用于当前命令，不修改应用保存的设�
 ```text
 Sources/CodexTip/           菜单栏、面板和应用入口
 Sources/CodexTipCore/       额度读取、统计、存储和语言支持
-Tests/CodexTipCoreTests/    自动化测试
+Tests/CodexTipCoreTests/    核心逻辑测试
+Tests/CodexTipUITests/      离屏面板交互回归测试
 Resources/Info.plist       macOS 应用配置
 scripts/                   构建与安装脚本
 docs/images/               使用演示数据生成的界面预览

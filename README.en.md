@@ -201,6 +201,8 @@ swift test
 
 Tests cover recent consumption, sample boundaries, resets, gaps, account isolation, file permissions, protocol handshakes, timeouts, language switching, and migration of existing preferences. `--check` reads live quota once without saving history. Local token tests cover cumulative deduplication, cache/reasoning subsets, archived/forked sessions, incremental reads and rewrites, timezones, and daylight saving.
 
+Switching tabs also resizes the popup, keeping the tabs and Settings button clickable after refreshes. Offscreen AppKit interaction tests cover repeated tab switches in both languages, history period changes, refreshes, and header hit testing after scrolling. They use demonstration data without showing windows or reading real accounts.
+
 Offline diagnostics (aggregate numbers only; no index writes or account connection):
 
 ```bash
@@ -227,7 +229,8 @@ Contributor instructions are in [AGENTS.md](AGENTS.md): verify, commit, and push
 ```text
 Sources/CodexTip/           Menu bar, dashboard, and app entry point
 Sources/CodexTipCore/       Quota client, statistics, storage, and localization
-Tests/CodexTipCoreTests/    Automated tests
+Tests/CodexTipCoreTests/    Core logic tests
+Tests/CodexTipUITests/      Offscreen dashboard interaction regression tests
 Resources/Info.plist       macOS app configuration
 scripts/                   Build and installation scripts
 docs/images/               Dashboard previews generated with demonstration data
