@@ -24,7 +24,7 @@ if args.contains("--check") {
         exit(report.isEmpty ? 1 : 0)
     } catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 } else if let index = args.firstIndex(of: "--render-menu-preview"), index + 1 < args.count {
-    do { try renderMenuPreview(to: args[index + 1]) }
+    do { try renderMenuPreview(to: args[index + 1], dotOptions: args.contains("--dot-options")) }
     catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 } else if let index = args.firstIndex(of: "--render-preview"), index + 1 < args.count {
     do { try renderPreview(to: args[index + 1], dark: args.contains("--dark")) }

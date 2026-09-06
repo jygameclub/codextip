@@ -99,7 +99,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         let main = "\(name)\(selected.window.compactLabel) \(percent(remaining))%"
         if stale { return main + L10n.text(" · 旧", " · stale") }
         if preferences.compactMode || preferences.periods.isEmpty { return main }
-        let deltas = preferences.periods.map { "\(Preferences.periodLabel($0)) \(consumption(minutes: $0).compact)" }.joined(separator: " · ")
+        let deltas = preferences.periods.map { consumption(minutes: $0).menuLabel(minutes: $0) }.joined(separator: " · ")
         return main + " (\(deltas))"
     }
 
@@ -107,11 +107,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         guard statusItem != nil else { return }
         statusItem.button?.title = title
         let hasData = hasRecentData
-        statusItem.button?.image = MenuBarBrand.image(hasData: hasData)
+        statusItem.button?.image = MenuBarBrand.image(hasData: hasData, preferences: preferences)
         statusItem.button?.setAccessibilityLabel(L10n.text("Codex 额度", "Codex quota"))
-        statusItem.button?.toolTip = L10n.text("Codex 剩余额度；括号内为近期消耗的额度百分点。点击查看详情和设置。", "Remaining Codex quota. Parentheses show recent percentage-point consumption. Click for details and settings.")
-        statusItem.button?.toolTip = (statusItem.button?.toolTip ?? "") + "\n" + MenuBarBrand.label(hasData: hasData)
-        statusItem.button?.setAccessibilityValue(title + " · " + MenuBarBrand.label(hasData: hasData))
+        statusItem.button?.toolTip = L10n.text("Codex 剩余额度；10m/1% 表示近 10 分钟约消耗 1 个百分点。* 表示部分时段，— 表示暂无统计。点击查看详情和设置。", "Remaining Codex quota. 10m/1% means an estimated 1 percentage point consumed in 10 minutes. * means partial history; — means unavailable. Click for details and settings.")
+        statusItem.button?.toolTip = (statusItem.button?.toolTip ?? "") + "\n" + MenuBarBrand.label(hasData: hasData, preferences: preferences)
+        statusItem.button?.setAccessibilityValue(title + " · " + MenuBarBrand.label(hasData: hasData, preferences: preferences))
         if popover.isShown && optionsMenu == nil { dashboard.rebuild() }
     }
 
@@ -174,6 +174,27 @@ final class AppController: NSObject, NSApplicationDelegate {
         let languageItem = item("语言 / Language")
         languageItem.submenu = languageMenu; menu.addItem(languageItem)
         menu.addItem(.separator())
+        let sizeMenu = NSMenu()
+        for size in Preferences.dotSizeOptions {
+            sizeMenu.addItem(item("\(size) pt", action: #selector(setDotSize(_:)), tag: size, on: preferences.effectiveDotSize == size))
+        }
+        let sizeItem = item(L10n.text("状态圆点大小", "Status dot size"))
+        sizeItem.submenu = sizeMenu; menu.addItem(sizeItem)
+        for hasData in [true, false] {
+            let colorMenu = NSMenu()
+            for color in IndicatorColor.allCases {
+                let option = item(color.label, action: #selector(setDotColor(_:)), tag: hasData ? 1 : 0, on: preferences.dotColor(hasData: hasData) == color)
+                option.representedObject = color.rawValue
+                var swatchPreferences = preferences
+                swatchPreferences.dotSize = 10
+                swatchPreferences.dataDotColor = color
+                option.image = MenuBarBrand.statusDot(hasData: true, preferences: swatchPreferences)
+                colorMenu.addItem(option)
+            }
+            let colorItem = item(hasData ? L10n.text("有数据时的颜色", "Color when data is available") : L10n.text("无数据时的颜色", "Color when data is unavailable"))
+            colorItem.submenu = colorMenu; menu.addItem(colorItem)
+        }
+        menu.addItem(.separator())
         for minutes in Preferences.refreshOptions {
             refreshMenu.addItem(item(L10n.text("每 \(minutes) 分钟", "Every \(minutes) min"), action: #selector(setRefresh(_:)), tag: minutes, on: preferences.refreshMinutes == minutes))
         }
@@ -219,6 +240,17 @@ final class AppController: NSObject, NSApplicationDelegate {
         L10n.language = language
         savePreferences()
         refresh()
+    }
+
+    @objc private func setDotSize(_ sender: NSMenuItem) {
+        preferences.dotSize = sender.tag; savePreferences()
+    }
+
+    @objc private func setDotColor(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let color = IndicatorColor(rawValue: raw) else { return }
+        if sender.tag == 1 { preferences.dataDotColor = color }
+        else { preferences.noDataDotColor = color }
+        savePreferences()
     }
 
     @objc private func setRefresh(_ sender: NSMenuItem) {

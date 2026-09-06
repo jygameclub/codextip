@@ -7,7 +7,7 @@
 See your remaining quota and recent consumption over the last 10 minutes, hour, or other periods, directly in the menu bar. No browser window, sound, or Dock icon.
 
 ```text
-[Codex logo] 🟢 wk 84% (10m ≈1% · 1h ≈6%)
+[Codex logo] 🟢 wk 84% (10m/1% · 1h/6%)
 ```
 
 > The numbers above and the screenshot below are demonstration data. Remaining quota comes from the server; recent consumption is estimated from local samples.
@@ -19,7 +19,7 @@ See your remaining quota and recent consumption over the last 10 minutes, hour, 
 ## Features
 
 - **Remaining quota:** percentage, actual quota window, and reset time. Select among the Codex, Spark, or other quotas returned by the server.
-- **Logo and status color:** a Codex logo replaces the product text in the menu bar. Its adjacent dot is green when valid quota data has been sampled within the last 10 minutes, and blue otherwise. The tooltip and panel also explain the status in text.
+- **Logo and status color:** a Codex logo replaces the product text in the menu bar. Its adjacent dot defaults to green when valid quota data has been sampled within the last 10 minutes, and blue otherwise. Dot size and both state colors are configurable. The tooltip and panel also explain the status in text.
 - **Recent consumption:** defaults to the last 10 minutes and hour. Choose 5 / 10 / 30 minutes or 1 / 3 / 6 / 24 hours.
 - **Adjustable refresh:** every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute. Manual refresh is also available.
 - **Bilingual interface:** Chinese and English menu bar labels, dashboard, settings, status messages, and errors. Follow the system language or select one manually.
@@ -74,6 +74,8 @@ Click the menu bar quota, then **Settings / 设置**.
 | Setting | Options |
 | --- | --- |
 | 语言 / Language | System / 简体中文 / English; changes take effect immediately and are saved |
+| Status dot size | 6, 8, 10, 12, or 14 pt; defaults to 10 pt, including upgrades without an explicit size preference |
+| Color when data is available / unavailable | Independently choose green, blue, cyan, orange, purple, red, pink, or yellow; defaults to green / blue |
 | Refresh interval | Every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute |
 | Recent periods | Up to 3 periods in parentheses; all may be disabled. The panel always includes 10 minutes and 1 hour |
 | Quota shown in menu bar | Select a quota actually returned by the server; recent consumption uses that same quota |
@@ -89,17 +91,19 @@ Automatic discovery checks Codex / ChatGPT apps in `/Applications` and `~/Applic
 
 | Display | Meaning |
 | --- | --- |
-| Green dot | A valid percentage for the selected quota was sampled within the last 10 minutes; zero consumption still counts as data |
-| Blue dot | No valid sample in the last 10 minutes, such as during startup, a prolonged outage, or extended sleep |
+| Data available (green by default) | A valid percentage for the selected quota was sampled within the last 10 minutes; zero consumption still counts as data |
+| No recent data (blue by default) | No valid sample in the last 10 minutes, such as during startup, a prolonged outage, or extended sleep |
 | `84%` | 84% of the selected quota remains |
-| `10m ≈1%` | An estimated 1 percentage point of the total quota was consumed in the last 10 minutes |
-| `≈1%*` | Partial history; only the recorded portion is included. The panel shows how many minutes are covered |
+| `10m/1%` | An estimated 1 percentage point of the total quota was consumed in the last 10 minutes |
+| `10m/1%*` | Partial history; only the recorded portion is included. The panel shows how many minutes are covered |
 | `—` | No reliable estimate yet: startup, missing data or identity, sampling gap, or a reset during the period |
 | `· stale` / `· 旧` | Refresh failed or data expired; the displayed quota is the last successful reading |
 
+The menu bar uses `10m/1%`: period on the left of `/`, estimated consumption on the right. The approximation sign is omitted to save space; the panel still shows `≈1%`, and `*` / `—` retain their meanings. Size and color changes take effect immediately and are saved. The panel and tooltip use the selected color name.
+
 For example, used quota increasing from **15% to 16%** counts as **1 percentage point consumed**, not a relative percentage change in used or remaining quota.
 
-The dot indicates **data received within the last 10 minutes**, not whether consumption increased. After a failed refresh, the dot may remain green while the text says “stale” if a valid sample is still within that window. Color is recalculated against the current time even without new samples; the display updates approximately every 15 seconds.
+The dot indicates **data received within the last 10 minutes**, not whether consumption increased. After a failed refresh, the dot may retain its data-available color while the text says “stale” if a valid sample is still within that window. Color is recalculated against the current time even without new samples; the display updates approximately every 15 seconds.
 
 - **History starts when the app runs.** A full 10-minute or 1-hour comparison needs that much sampling history. Usage before installation is not reconstructed.
 - **Account-wide consumption.** Changes may include usage from other devices using the same account, not just this Mac.
@@ -171,6 +175,7 @@ Render a demonstration dashboard offscreen, without opening a foreground window 
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language en
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/dot-options.png --language en --dot-options
 ```
 
 The CLI `--language en|zh` option affects only that command; it does not change saved app settings.

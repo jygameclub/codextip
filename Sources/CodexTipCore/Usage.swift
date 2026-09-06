@@ -98,6 +98,16 @@ public enum Consumption: Equatable {
     case measured(points: Double, coverage: TimeInterval, partial: Bool)
     case unavailable(String)
 
+    /// Short menu-bar notation; approximation is explained in the dashboard/tooltip.
+    public func menuLabel(minutes: Int) -> String {
+        let amount: String
+        switch self {
+        case let .measured(points, _, partial): amount = "\(percent(points))%\(partial ? "*" : "")"
+        case .unavailable: amount = "—"
+        }
+        return "\(Preferences.periodLabel(minutes))/\(amount)"
+    }
+
     public var compact: String {
         switch self {
         case let .measured(points, _, partial): return "≈\(percent(points))%\(partial ? "*" : "")"
@@ -197,6 +207,7 @@ public struct UsageHistory: Codable {
 public struct Preferences: Codable {
     public static let refreshOptions = [1, 2, 3, 5, 10]
     public static let periodOptions = [5, 10, 30, 60, 180, 360, 1440]
+    public static let dotSizeOptions = [6, 8, 10, 12, 14]
     public var refreshMinutes = 1
     public var periods = [10, 60]
     public var selectedWindowID = "codex/primary"
@@ -204,9 +215,22 @@ public struct Preferences: Codable {
     public var executablePath: String? = nil
     // Optional so preferences written before language support still decode unchanged.
     public var language: AppLanguage? = nil
+    public var dotSize: Int? = nil
+    public var dataDotColor: IndicatorColor? = nil
+    public var noDataDotColor: IndicatorColor? = nil
     public init() {}
 
+    public var effectiveDotSize: Int {
+        guard let dotSize, Self.dotSizeOptions.contains(dotSize) else { return 10 }
+        return dotSize
+    }
+
+    public func dotColor(hasData: Bool) -> IndicatorColor {
+        hasData ? (dataDotColor ?? .green) : (noDataDotColor ?? .blue)
+    }
+
     public mutating func validate() {
+        if let dotSize, !Self.dotSizeOptions.contains(dotSize) { self.dotSize = nil }
         if !Self.refreshOptions.contains(refreshMinutes) { refreshMinutes = 1 }
         periods = Array(Set(periods.filter { Self.periodOptions.contains($0) })).sorted()
         if periods.count > 3 { periods = Array(periods.prefix(3)) }
