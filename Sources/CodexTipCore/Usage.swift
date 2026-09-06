@@ -223,7 +223,14 @@ public struct Preferences: Codable {
     public var emojiSize: Int? = nil
     public var dataEmoji: String? = nil
     public var noDataEmoji: String? = nil
+    public var dataAnimation: IndicatorAnimation? = nil
+    public var noDataAnimation: IndicatorAnimation? = nil
     public init() {}
+
+    public func animation(hasData: Bool) -> IndicatorAnimation {
+        (hasData ? dataAnimation : noDataAnimation) ?? .none
+    }
+    public var hasAnimation: Bool { animation(hasData: true) != .none || animation(hasData: false) != .none }
 
     public var effectiveIndicatorAppearance: IndicatorAppearance { indicatorAppearance ?? .dot }
     public var effectiveEmojiSize: Int {

@@ -15,6 +15,8 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let tokenIndexer = LocalTokenIndexer()
     private var timer: Timer?
     private var clockTimer: Timer?
+    private var sleeping = false
+    private lazy var statusAnimator = StatusAnimator { [weak self] image in self?.statusItem?.button?.image = image }
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var eventMonitor: Any?
@@ -35,9 +37,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         return error != nil || age < 0 || age > Double(preferences.refreshMinutes * 60) * 1.8 + 30
     }
 
-    var hasRecentData: Bool {
-        history.hasRecentData(windowID: selected?.id ?? preferences.selectedWindowID)
-    }
+    var recentActivity: UsageActivity { UsageActivity(consumption: consumption(minutes: 10)) }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -72,15 +72,21 @@ final class AppController: NSObject, NSApplicationDelegate {
         refresh()
         clockTimer = Timer(timeInterval: 15, repeats: true) { [weak self] _ in self?.redraw() }
         if let clockTimer { RunLoop.main.add(clockTimer, forMode: .common) }
-        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(woke), name: NSWorkspace.didWakeNotification, object: nil)
+        let notifications = NSWorkspace.shared.notificationCenter
+        notifications.addObserver(self, selector: #selector(woke), name: NSWorkspace.didWakeNotification, object: nil)
+        notifications.addObserver(self, selector: #selector(willSleep), name: NSWorkspace.willSleepNotification, object: nil)
+        notifications.addObserver(self, selector: #selector(accessibilityChanged), name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        timer?.invalidate(); clockTimer?.invalidate()
+        timer?.invalidate(); clockTimer?.invalidate(); statusAnimator.stop()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         if let eventMonitor { NSEvent.removeMonitor(eventMonitor) }
     }
 
-    @objc private func woke() { refresh(); schedule() }
+    @objc private func woke() { sleeping = false; refresh(); schedule() }
+    @objc private func willSleep() { sleeping = true; statusAnimator.stop() }
+    @objc private func accessibilityChanged() { redraw() }
 
     @objc func togglePopover() {
         if popover.isShown { popover.performClose(nil); return }
@@ -111,12 +117,14 @@ final class AppController: NSObject, NSApplicationDelegate {
     private func redraw() {
         guard statusItem != nil else { return }
         statusItem.button?.title = title
-        let hasData = hasRecentData
-        statusItem.button?.image = MenuBarBrand.image(hasData: hasData, preferences: preferences)
+        let activity = recentActivity
+        statusAnimator.configure(hasData: activity.isActive, preferences: preferences,
+                                 reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+                                 suspended: sleeping || !statusItem.isVisible)
         statusItem.button?.setAccessibilityLabel(L10n.text("Codex 额度", "Codex quota"))
         statusItem.button?.toolTip = L10n.text("Codex 剩余额度；10m/1% 表示近 10 分钟约消耗 1 个百分点。* 表示部分时段，— 表示暂无统计。点击查看详情和设置。", "Remaining Codex quota. 10m/1% means an estimated 1 percentage point consumed in 10 minutes. * means partial history; — means unavailable. Click for details and settings.")
-        statusItem.button?.toolTip = (statusItem.button?.toolTip ?? "") + "\n" + MenuBarBrand.label(hasData: hasData, preferences: preferences)
-        statusItem.button?.setAccessibilityValue(title + " · " + MenuBarBrand.label(hasData: hasData, preferences: preferences))
+        statusItem.button?.toolTip = (statusItem.button?.toolTip ?? "") + "\n" + MenuBarBrand.label(activity: activity, preferences: preferences)
+        statusItem.button?.setAccessibilityValue(title + " · " + MenuBarBrand.label(activity: activity, preferences: preferences))
         if popover.isShown && optionsMenu == nil { dashboard.rebuild() }
     }
 
@@ -188,6 +196,14 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     func showSettings(from button: NSButton) {
+        let menu = makeSettingsMenu()
+        optionsMenu = menu
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+        optionsMenu = nil
+        redraw()
+    }
+
+    func makeSettingsMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
         func item(_ title: String, action: Selector? = nil, tag: Int = 0, on: Bool = false) -> NSMenuItem {
@@ -213,6 +229,21 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         let appearanceItem = item(L10n.text("状态标识：", "Status indicator: ") + preferences.effectiveIndicatorAppearance.label)
         appearanceItem.submenu = appearanceMenu; menu.addItem(appearanceItem)
+        for active in [true, false] {
+            let effects = NSMenu()
+            for effect in IndicatorAnimation.allCases {
+                let option = item(effect.label, action: #selector(setAnimation(_:)), tag: active ? 1 : 0,
+                                  on: preferences.animation(hasData: active) == effect)
+                option.representedObject = effect.rawValue; effects.addItem(option)
+            }
+            let label = active ? L10n.text("有消耗时的动画", "Animation when active") : L10n.text("无消耗／未知时的动画", "Animation when idle / unknown")
+            let option = item(label + L10n.text("：", ": ") + preferences.animation(hasData: active).label)
+            option.submenu = effects; menu.addItem(option)
+        }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            let note = item(L10n.text("系统已减少动态效果，动画暂停", "Reduce Motion is on; animations paused"))
+            note.isEnabled = false; menu.addItem(note)
+        }
         if preferences.effectiveIndicatorAppearance == .emoji {
             let sizes = NSMenu()
             for size in Preferences.emojiSizeOptions {
@@ -230,7 +261,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                 }
                 choices.addItem(.separator())
                 choices.addItem(item(L10n.text("自定义表情…", "Custom emoji…"), action: #selector(customizeStatusEmoji(_:)), tag: hasData ? 1 : 0))
-                let label = hasData ? L10n.text("有数据时的表情", "Emoji when data is available") : L10n.text("无数据时的表情", "Emoji when data is unavailable")
+                let label = hasData ? L10n.text("有消耗时的表情", "Emoji when active") : L10n.text("无消耗／未知时的表情", "Emoji when idle / unknown")
                 let option = item(label + "  " + current)
                 option.submenu = choices; menu.addItem(option)
             }
@@ -252,7 +283,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                     option.image = MenuBarBrand.statusDot(hasData: true, preferences: swatchPreferences)
                     colorMenu.addItem(option)
                 }
-                let colorItem = item(hasData ? L10n.text("有数据时的颜色", "Color when data is available") : L10n.text("无数据时的颜色", "Color when data is unavailable"))
+                let colorItem = item(hasData ? L10n.text("有消耗时的颜色", "Color when active") : L10n.text("无消耗／未知时的颜色", "Color when idle / unknown"))
                 colorItem.submenu = colorMenu; menu.addItem(colorItem)
             }
         }
@@ -290,10 +321,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(item(L10n.text("打开本地数据目录", "Open local data folder"), action: #selector(openData)))
         menu.addItem(item(L10n.text("退出 CodexTip", "Quit CodexTip"), action: #selector(quit)))
-        optionsMenu = menu
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
-        optionsMenu = nil
-        redraw()
+        return menu
     }
 
     @objc private func setLanguage(_ sender: NSMenuItem) {
@@ -307,6 +335,12 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc private func setIndicatorAppearance(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let appearance = IndicatorAppearance(rawValue: raw) else { return }
         preferences.indicatorAppearance = appearance; savePreferences()
+    }
+
+    @objc private func setAnimation(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let effect = IndicatorAnimation(rawValue: raw) else { return }
+        if sender.tag == 1 { preferences.dataAnimation = effect } else { preferences.noDataAnimation = effect }
+        savePreferences()
     }
 
     @objc private func setEmojiSize(_ sender: NSMenuItem) {
@@ -327,7 +361,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             self.popover.performClose(nil)
             NSApp.activate(ignoringOtherApps: true)
             let alert = NSAlert()
-            alert.messageText = hasData ? L10n.text("有数据时的表情", "Emoji when data is available") : L10n.text("无数据时的表情", "Emoji when data is unavailable")
+            alert.messageText = hasData ? L10n.text("有消耗时的表情", "Emoji when active") : L10n.text("无消耗／未知时的表情", "Emoji when idle / unknown")
             alert.informativeText = L10n.text("输入或粘贴一个表情。可按 Control + Command + 空格打开系统表情面板。", "Enter or paste one emoji. Press Control + Command + Space to open the system emoji picker.")
             alert.addButton(withTitle: L10n.text("保存", "Save"))
             alert.addButton(withTitle: L10n.text("取消", "Cancel"))

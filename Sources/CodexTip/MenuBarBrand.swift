@@ -11,11 +11,12 @@ enum MenuBarBrand {
     }()
 
     static func label(hasData: Bool, preferences: Preferences = Preferences()) -> String {
-        let status = hasData
-            ? L10n.text("近 10 分钟有额度数据", "Quota data received in the last 10 min")
-            : L10n.text("近 10 分钟无额度数据", "No quota data in the last 10 min")
-        let marker = preferences.effectiveIndicatorAppearance == .emoji ? preferences.emoji(hasData: hasData) : preferences.dotColor(hasData: hasData).label
-        return marker + " · " + status
+        label(activity: hasData ? .active : .idle, preferences: preferences)
+    }
+
+    static func label(activity: UsageActivity, preferences: Preferences) -> String {
+        let marker = preferences.effectiveIndicatorAppearance == .emoji ? preferences.emoji(hasData: activity.isActive) : preferences.dotColor(hasData: activity.isActive).label
+        return marker + " · " + activity.label
     }
 
     static func color(hasData: Bool, preferences: Preferences) -> NSColor {
@@ -31,8 +32,8 @@ enum MenuBarBrand {
         }
     }
 
-    static func image(hasData: Bool, preferences: Preferences = Preferences()) -> NSImage {
-        let marker = statusIndicator(hasData: hasData, preferences: preferences)
+    static func image(hasData: Bool, preferences: Preferences = Preferences(), phase: Double? = nil) -> NSImage {
+        let marker = animatedIndicator(hasData: hasData, preferences: preferences, phase: phase)
         let image = NSImage(size: NSSize(width: 24 + marker.size.width, height: 18), flipped: false) { rect in
             let logoRect = NSRect(x: 0, y: 0, width: 18, height: 18)
             if let logo {
@@ -115,11 +116,11 @@ func renderMenuPreview(to path: String, dotOptions: Bool = false, emojiOptions: 
                 NSColor.windowBackgroundColor.setFill(); row.fill()
                 let icon = MenuBarBrand.image(hasData: hasData, preferences: preferences)
                 icon.draw(in: NSRect(x: 12, y: row.minY + 12, width: icon.size.width, height: 18))
-                let title = hasData ? L10n.text("周 84% (10m/1% · 1h/6%)", "wk 84% (10m/1% · 1h/6%)") : L10n.text("周 84% · 旧", "wk 84% · stale")
+                let title = hasData ? L10n.text("周 84% (10m/1% · 1h/6%)", "wk 84% (10m/1% · 1h/6%)") : L10n.text("周 84% (10m/0% · 1h/6%)", "wk 84% (10m/0% · 1h/6%)")
                 (title as NSString).draw(at: NSPoint(x: 12 + icon.size.width + 7, y: row.minY + 14), withAttributes: [
                     .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.labelColor
                 ])
-                let label = emojiOptions ? "\(preferences.effectiveEmojiSize) pt · " + (hasData ? L10n.text("有数据", "Active") : L10n.text("无数据", "Idle")) : dotOptions ? "\(diameter) pt · " + preferences.dotColor(hasData: hasData).label : hasData ? L10n.text("有数据", "Data received") : L10n.text("无数据", "No recent data")
+                let label = emojiOptions ? "\(preferences.effectiveEmojiSize) pt · " + (hasData ? L10n.text("有消耗", "Active") : L10n.text("无消耗", "Idle")) : dotOptions ? "\(diameter) pt · " + preferences.dotColor(hasData: hasData).label : hasData ? L10n.text("有消耗", "Active") : L10n.text("无消耗", "Idle")
                 (label as NSString).draw(at: NSPoint(x: 330, y: row.minY + 14), withAttributes: [
                     .font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.secondaryLabelColor
                 ])

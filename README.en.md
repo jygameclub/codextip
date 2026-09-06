@@ -19,8 +19,8 @@ See your remaining quota and recent consumption over the last 10 minutes, hour, 
 ## Features
 
 - **Remaining quota:** percentage, actual quota window, and reset time. Select among the Codex, Spark, or other quotas returned by the server.
-- **Logo and status color:** a Codex logo replaces the product text in the menu bar. Its adjacent dot defaults to green when valid quota data has been sampled within the last 10 minutes, and blue otherwise. Dot size and both state colors are configurable. The tooltip and panel also explain the status in text.
-- **Emoji status indicators:** switch from dots to emoji in Settings. Configure available/unavailable states independently with presets or one custom emoji, at 12 / 14 / 16 / 18 pt.
+- **Logo and status color:** a Codex logo replaces the product text in the menu bar. Its adjacent dot defaults to green when consumption in the last 10 minutes is > 0, and blue when it is zero or unavailable. Dot size and both state colors are configurable. The tooltip and panel also explain the status in text.
+- **Emoji status indicators:** switch from dots to emoji in Settings. Configure active and idle/unknown states independently with presets or one custom emoji, at 12 / 14 / 16 / 18 pt.
 - **Recent consumption:** defaults to the last 10 minutes and hour. Choose 5 / 10 / 30 minutes or 1 / 3 / 6 / 24 hours.
 - **Cost estimates:** the Local tokens panel shows USD API equivalents, per-model costs, and bucket costs on hover. Input, cache reads/writes, output, and long contexts are priced separately; missing prices are clearly marked.
 - **Adjustable refresh:** every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute. Manual refresh is also available.
@@ -79,10 +79,11 @@ Click the menu bar quota, then **Settings / 设置 in the top-right corner**. Se
 | --- | --- |
 | 语言 / Language | System / 简体中文 / English; changes take effect immediately and are saved |
 | Status indicator | Dot / Emoji; upgrades keep dots by default, and both modes retain their settings |
+| Animation when active / idle or unknown | Independently choose Still, Breathe, Bounce, Sway, or Orbit for dots and emoji; defaults to Still |
 | Emoji size | 12, 14, 16, or 18 pt in Emoji mode; defaults to 16 pt |
-| Emoji when data is available / unavailable | Choose a preset or “Custom emoji…” for each state; defaults to 🙂 / 😴 and applies immediately |
+| Emoji when active / idle or unknown | Choose a preset or “Custom emoji…” for each state; defaults to 🙂 / 😴 and applies immediately |
 | Status dot size | 6, 8, 10, 12, or 14 pt; defaults to 10 pt, including upgrades without an explicit size preference |
-| Color when data is available / unavailable | Independently choose green, blue, cyan, orange, purple, red, pink, or yellow; defaults to green / blue |
+| Color when active / idle or unknown | Independently choose green, blue, cyan, orange, purple, red, pink, or yellow; defaults to green / blue |
 | Refresh interval | Every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute |
 | Recent periods | Up to 3 periods in parentheses; all may be disabled. The panel always includes 10 minutes and 1 hour |
 | Quota shown in menu bar | Select a quota actually returned by the server; recent consumption uses that same quota |
@@ -92,11 +93,19 @@ Click the menu bar quota, then **Settings / 设置 in the top-right corner**. Se
 
 System mode uses Simplified Chinese when your primary system language is Chinese, and English otherwise. Native macOS controls such as the file picker may still follow your system language. Existing settings are preserved when upgrading; the new language preference defaults to System.
 
-**Use emoji:** Settings → Status indicator → Emoji. Reopen Settings to choose the available/unavailable emoji independently. Custom input accepts one complete emoji, including 👩🏽‍💻, 🇯🇵, or 👨‍👩‍👧‍👦. Paste it or press `Control + Command + Space` for the system emoji picker. Blank input, ordinary text, and multiple emoji are rejected; Cancel preserves settings.
+**Use emoji:** Settings → Status indicator → Emoji. Reopen Settings to choose the active and idle/unknown emoji independently. Custom input accepts one complete emoji, including 👩🏽‍💻, 🇯🇵, or 👨‍👩‍👧‍👦. Paste it or press `Control + Command + Space` for the system emoji picker. Blank input, ordinary text, and multiple emoji are rejected; Cancel preserves settings.
 
-Emoji indicate the same 10-minute quota-data freshness as dots. They retain system colors; dot color settings apply only in Dot mode. Support for newer emoji depends on your macOS font version.
+Dots and emoji indicate consumption of the selected quota in the last 10 minutes: > 0 is active, ≤ 0 is idle. Unavailable statistics use the inactive appearance with a distinct text explanation. They retain system colors; dot color settings apply only in Dot mode. Support for newer emoji depends on your macOS font version.
 
 <img src="docs/images/emoji-options-en.png" alt="Emoji status previews: 🙂, 😴 and custom emoji, at 12–18 pt in light and dark appearance" width="420">
+
+**Use animations:** Settings → Animation when active or Animation when idle / unknown. Try Bounce or Orbit for active usage and Breathe or Still for idle. Select Emoji under Status indicator to animate your chosen emoji. Changes save immediately; upgrading does not enable animations automatically.
+
+Only the status marker moves; the logo and quota text stay fixed. Active animations loop every 2.4 seconds at 10 fps; idle/unknown animations loop every 4.8 seconds at 5 fps. Playback uses 24 cached frames without polling quota, scanning logs, or rebuilding the dashboard. Animations stop during sleep or when macOS Reduce Motion is enabled. They indicate recent consumption, not whether Codex is currently generating content.
+
+<img src="docs/images/animations-en.gif" alt="Breathe, Bounce, Sway, and Orbit animations for dots and emoji in light and dark appearance" width="460">
+
+[View a still preview](docs/images/animations-en.png).
 
 Automatic discovery checks Codex / ChatGPT apps in `/Applications` and `~/Applications`, Homebrew locations, `~/.local/bin`, and the process `PATH`. An explicitly selected executable is not silently replaced with a different client.
 
@@ -104,8 +113,9 @@ Automatic discovery checks Codex / ChatGPT apps in `/Applications` and `~/Applic
 
 | Display | Meaning |
 | --- | --- |
-| Data available (green by default) | A valid percentage for the selected quota was sampled within the last 10 minutes; zero consumption still counts as data |
-| No recent data (blue by default) | No valid sample in the last 10 minutes, such as during startup, a prolonged outage, or extended sleep |
+| Active (green / 🙂 by default) | Estimated consumption of the selected quota in the last 10 minutes is > 0; successful polling alone is insufficient |
+| Idle (blue / 😴 by default) | Estimated consumption in the last 10 minutes is ≤ 0, such as `10m/0%` |
+| Unknown (blue / 😴 by default) | Stale data, insufficient samples, a gap, or reset; explicitly labeled unavailable rather than counted as zero |
 | `84%` | 84% of the selected quota remains |
 | `10m/1%` | An estimated 1 percentage point of the total quota was consumed in the last 10 minutes |
 | `10m/1%*` | Partial history; only the recorded portion is included. The panel shows how many minutes are covered |
@@ -116,7 +126,7 @@ The menu bar uses `10m/1%`: period on the left of `/`, estimated consumption on 
 
 For example, used quota increasing from **15% to 16%** counts as **1 percentage point consumed**, not a relative percentage change in used or remaining quota.
 
-The dot indicates **data received within the last 10 minutes**, not whether consumption increased. After a failed refresh, the dot may retain its data-available color while the text says “stale” if a valid sample is still within that window. Color is recalculated against the current time even without new samples; the display updates approximately every 15 seconds.
+Status uses the same selected-quota calculation as `10m/...`, before rounding, independently of local token history. Successful polling with zero consumption stays inactive; status returns to idle when past consumption leaves the ten-minute comparison window. The window ends at the latest sample. Failed refreshes or stale data produce an unknown state. Status is checked on refresh and approximately every 15 seconds, regardless of compact mode or selected display periods. Existing colors and emoji are preserved; their trigger now follows consumption.
 
 - **History starts when the app runs.** A full 10-minute or 1-hour comparison needs that much sampling history. Usage before installation is not reconstructed.
 - **Account-wide consumption.** Changes may include usage from other devices using the same account, not just this Mac.
@@ -201,6 +211,8 @@ swift test
 
 Tests cover recent consumption, sample boundaries, resets, gaps, account isolation, file permissions, protocol handshakes, timeouts, language switching, and migration of existing preferences. `--check` reads live quota once without saving history. Local token tests cover cumulative deduplication, cache/reasoning subsets, archived/forked sessions, incremental reads and rewrites, timezones, and daylight saving.
 
+Animation tests cover positive/zero/unknown consumption, preference migration, cache reuse, Still and Reduce Motion, sleep suspension, changing frames, and fixed logo position and width.
+
 Switching tabs also resizes the popup, keeping the tabs and Settings button clickable after refreshes. Offscreen AppKit interaction tests cover repeated tab switches in both languages, history period changes, refreshes, and header hit testing after scrolling. They use demonstration data without showing windows or reading real accounts.
 
 Offline diagnostics (aggregate numbers only; no index writes or account connection):
@@ -220,6 +232,7 @@ Render a demonstration dashboard offscreen, without opening a foreground window 
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language en
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/dot-options.png --language en --dot-options
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/emoji-options.png --language en --emoji-options
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-animation-preview dist/animations.gif --language en
 ```
 
 The CLI `--language en|zh` option affects only that command; it does not change saved app settings.
