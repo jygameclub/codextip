@@ -7,7 +7,7 @@ let package = Package(
     products: [.executable(name: "CodexTip", targets: ["CodexTip"])],
     targets: [
         .target(name: "CodexTipCore"),
-        .executableTarget(name: "CodexTip", dependencies: ["CodexTipCore"]),
+        .executableTarget(name: "CodexTip", dependencies: ["CodexTipCore"], resources: [.copy("Assets/codex-logo.png")]),
         .testTarget(name: "CodexTipCoreTests", dependencies: ["CodexTipCore"])
     ]
 )

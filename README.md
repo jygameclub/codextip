@@ -7,16 +7,19 @@
 在菜单栏查看剩余额度，同时观察最近 10 分钟、1 小时等时段的消耗。无需打开浏览器，不播放声音，不占用 Dock。
 
 ```text
-Codex 周 84% (10m ≈1% · 1h ≈6%)
+[Codex Logo] 🟢 周 84% (10m ≈1% · 1h ≈6%)
 ```
 
 > 上方数字与下方截图均为演示数据。剩余额度来自服务器，近期消耗通过本机采样估算。
+
+<img src="docs/images/menu-status-zh.png" alt="Codex Logo 与绿色、蓝色状态圆点的深浅色菜单栏预览" width="420">
 
 <img src="docs/images/preview-zh.png" alt="CodexTip 中文面板：剩余额度、最近消耗、其他额度和设置" width="390">
 
 ## 功能
 
 - **剩余额度**：显示百分比、真实额度周期及重置时间；支持选择服务器返回的普通 Codex、Spark 等额度。
+- **Logo 与状态颜色**：菜单栏用 Codex Logo 代替产品文字。旁边圆点在最近 10 分钟有有效额度采样时为绿色，否则为蓝色；鼠标提示与面板也提供文字说明。
 - **近期消耗**：默认显示最近 10 分钟、1 小时，可选择 5 / 10 / 30 分钟、1 / 3 / 6 / 24 小时。
 - **可调刷新**：1、2、3、5、10 分钟，默认 1 分钟；也可立即刷新。
 - **中英文界面**：菜单栏、面板、设置、状态说明与错误提示均支持中文和英文，可跟随系统或手动选择。
@@ -53,7 +56,7 @@ cd codextip
 ./scripts/install.sh
 ```
 
-脚本安装到 `~/Applications/CodexTip.app` 并在后台启动，无需管理员权限。安装完成后，在屏幕顶部菜单栏找到 `Codex …`。
+脚本安装到 `~/Applications/CodexTip.app` 并在后台启动，无需管理员权限。安装完成后，在屏幕顶部菜单栏找到 Codex Logo、状态圆点和额度数字。
 
 也可以单独构建和运行：
 
@@ -86,6 +89,8 @@ Codex 自动查找范围包括 `/Applications` 和 `~/Applications` 中的 Codex
 
 | 显示 | 含义 |
 | --- | --- |
+| 绿色圆点 | 最近 10 分钟内成功采到所选额度的有效百分比；消耗为 0 也属于有数据 |
+| 蓝色圆点 | 最近 10 分钟无有效采样，例如刚启动、持续断网或长时间休眠 |
 | `84%` | 所选额度当前剩余 84% |
 | `10m ≈1%` | 最近 10 分钟大约消耗了总额度的 1 个百分点 |
 | `≈1%*` | 尚未覆盖完整时段，仅统计已记录的部分；面板显示覆盖分钟数 |
@@ -93,6 +98,8 @@ Codex 自动查找范围包括 `/Applications` 和 `~/Applications` 中的 Codex
 | `· 旧` / `· stale` | 刷新失败或数据过期，当前显示上次成功读取的额度 |
 
 例如，已用额度从 **15% 增至 16%**，消耗记为 **1 个百分点**，不是已用量或剩余量的相对增长率。
+
+圆点表示**数据是否在最近 10 分钟出现过**，不代表额度是否发生消耗。最近一次刷新失败时，只要 10 分钟内仍有有效采样，圆点可以保持绿色，同时文字显示「旧」。无新采样也会按时钟重新计算颜色，界面约每 15 秒更新一次状态。
 
 - **首次运行需要积累数据**：完整的 10 分钟 / 1 小时统计，需要对应长度的采样历史，不回推安装前的使用量。
 - **账户级统计**：反映同一账户的额度变化，也可能包含其他设备上的使用，并非只统计当前 Mac。
@@ -163,9 +170,12 @@ swift test
 ```bash
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en --dark
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language zh
 ```
 
 CLI 的 `--language zh|en` 仅用于当前命令，不修改应用保存的设置。
+
+开发协作规则见 [AGENTS.md](AGENTS.md)：每次完成文件修改任务后验证、提交并推送到当前分支；推送后核对远程提交。图标来源与使用方式见 [资源说明](docs/ASSETS.md)。
 
 ```text
 Sources/CodexTip/           菜单栏、面板和应用入口

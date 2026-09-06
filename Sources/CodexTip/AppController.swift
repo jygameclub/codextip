@@ -30,6 +30,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         return error != nil || age < 0 || age > Double(preferences.refreshMinutes * 60) * 1.8 + 30
     }
 
+    var hasRecentData: Bool {
+        history.hasRecentData(windowID: selected?.id ?? preferences.selectedWindowID)
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         // Prevent duplicate menu-bar items when the binary is launched directly twice.
@@ -51,6 +55,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         statusItem.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
+        statusItem.button?.imagePosition = .imageLeading
+        statusItem.button?.imageScaling = .scaleNone
         statusItem.button?.setAccessibilityLabel(L10n.text("Codex 额度", "Codex quota"))
         dashboard = DashboardController(app: self)
         popover.contentViewController = dashboard
@@ -59,7 +65,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         redraw()
         schedule()
         refresh()
-        clockTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in self?.redraw() }
+        clockTimer = Timer(timeInterval: 15, repeats: true) { [weak self] _ in self?.redraw() }
+        if let clockTimer { RunLoop.main.add(clockTimer, forMode: .common) }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(woke), name: NSWorkspace.didWakeNotification, object: nil)
     }
 
@@ -86,10 +93,10 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     var title: String {
         guard let selected, let remaining = selected.window.remaining else {
-            return refreshing ? "Codex ···" : "Codex —"
+            return refreshing ? "···" : "—"
         }
-        let name = selected.bucketID == "codex" ? "Codex" : (selected.name.contains("Spark") ? "Spark" : selected.name)
-        let main = "\(name) \(selected.window.compactLabel) \(percent(remaining))%"
+        let name = selected.bucketID == "codex" ? "" : (selected.name.contains("Spark") ? "Spark " : selected.name + " ")
+        let main = "\(name)\(selected.window.compactLabel) \(percent(remaining))%"
         if stale { return main + L10n.text(" · 旧", " · stale") }
         if preferences.compactMode || preferences.periods.isEmpty { return main }
         let deltas = preferences.periods.map { "\(Preferences.periodLabel($0)) \(consumption(minutes: $0).compact)" }.joined(separator: " · ")
@@ -99,9 +106,12 @@ final class AppController: NSObject, NSApplicationDelegate {
     private func redraw() {
         guard statusItem != nil else { return }
         statusItem.button?.title = title
+        let hasData = hasRecentData
+        statusItem.button?.image = MenuBarBrand.image(hasData: hasData)
         statusItem.button?.setAccessibilityLabel(L10n.text("Codex 额度", "Codex quota"))
         statusItem.button?.toolTip = L10n.text("Codex 剩余额度；括号内为近期消耗的额度百分点。点击查看详情和设置。", "Remaining Codex quota. Parentheses show recent percentage-point consumption. Click for details and settings.")
-        statusItem.button?.setAccessibilityValue(title)
+        statusItem.button?.toolTip = (statusItem.button?.toolTip ?? "") + "\n" + MenuBarBrand.label(hasData: hasData)
+        statusItem.button?.setAccessibilityValue(title + " · " + MenuBarBrand.label(hasData: hasData))
         if popover.isShown && optionsMenu == nil { dashboard.rebuild() }
     }
 

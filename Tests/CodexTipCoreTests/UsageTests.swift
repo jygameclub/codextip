@@ -21,6 +21,53 @@ final class UsageTests: XCTestCase {
         history.consumption(windowID: "codex/primary", seconds: minutes * 60)
     }
 
+    func testRecentDataExpiresUsingWallClock() {
+        var history = UsageHistory()
+        history.append(sample(0, 15))
+        XCTAssertTrue(history.hasRecentData(windowID: "codex/primary", now: origin))
+        XCTAssertTrue(history.hasRecentData(windowID: "codex/primary", now: origin.addingTimeInterval(600)))
+        XCTAssertFalse(history.hasRecentData(windowID: "codex/primary", now: origin.addingTimeInterval(600.001)))
+    }
+
+    func testRecentDataDoesNotRequireConsumption() {
+        var history = UsageHistory()
+        history.append(sample(0, 0)); history.append(sample(1, 0))
+        XCTAssertTrue(history.hasRecentData(windowID: "codex/primary", now: origin.addingTimeInterval(60)))
+    }
+
+    func testRecentDataRejectsEmptyMissingInvalidAndFutureSamples() {
+        var history = UsageHistory()
+        XCTAssertFalse(history.hasRecentData(windowID: "codex/primary", now: origin))
+        history.append(sample(0, nil))
+        XCTAssertFalse(history.hasRecentData(windowID: "codex/primary", now: origin))
+        history.append(sample(1, 101))
+        XCTAssertFalse(history.hasRecentData(windowID: "codex/primary", now: origin.addingTimeInterval(60)))
+        history.append(sample(2, 15))
+        XCTAssertFalse(history.hasRecentData(windowID: "codex/primary", now: origin.addingTimeInterval(90)))
+    }
+
+    func testRecentDataUsesSelectedWindowAndCurrentAccount() {
+        var history = UsageHistory()
+        history.append(sample(0, 15))
+        XCTAssertFalse(history.hasRecentData(windowID: "spark/primary", now: origin))
+        history.append(sample(1, nil, account: "account-b"))
+        XCTAssertFalse(history.hasRecentData(windowID: "codex/primary", now: origin.addingTimeInterval(60)))
+    }
+
+    func testRecentValidDataSurvivesAnIncompleteReadingWithinTenMinutes() {
+        var history = UsageHistory()
+        history.append(sample(0, 15)); history.append(sample(1, nil))
+        XCTAssertTrue(history.hasRecentData(windowID: "codex/primary", now: origin.addingTimeInterval(90)))
+        XCTAssertFalse(history.hasRecentData(windowID: "codex/primary", now: origin.addingTimeInterval(601)))
+    }
+
+    func testLatestQuotaCanShowRecentDataWithoutAnAccountIdentifier() {
+        var history = UsageHistory()
+        history.append(sample(0, 15, account: nil))
+        XCTAssertTrue(history.hasRecentData(windowID: "codex/primary", now: origin))
+        XCTAssertEqual(delta(history), .unavailable("账户标识不可用"))
+    }
+
     func testNormalTenMinutesAndHour() {
         var history = UsageHistory()
         for i in 0...60 { history.append(sample(Double(i), 10 + Double(i) * 0.2)) }

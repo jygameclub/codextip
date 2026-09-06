@@ -23,6 +23,9 @@ if args.contains("--check") {
         print("\(L10n.text("账户隔离", "Account isolation")): \(snapshot.accountKey == nil ? L10n.text("不可用，禁用历史比较", "unavailable; history comparison disabled") : L10n.text("已启用", "enabled"))")
         exit(report.isEmpty ? 1 : 0)
     } catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
+} else if let index = args.firstIndex(of: "--render-menu-preview"), index + 1 < args.count {
+    do { try renderMenuPreview(to: args[index + 1]) }
+    catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 } else if let index = args.firstIndex(of: "--render-preview"), index + 1 < args.count {
     do { try renderPreview(to: args[index + 1], dark: args.contains("--dark")) }
     catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }

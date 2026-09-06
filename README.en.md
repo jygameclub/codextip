@@ -7,16 +7,19 @@
 See your remaining quota and recent consumption over the last 10 minutes, hour, or other periods, directly in the menu bar. No browser window, sound, or Dock icon.
 
 ```text
-Codex wk 84% (10m ≈1% · 1h ≈6%)
+[Codex logo] 🟢 wk 84% (10m ≈1% · 1h ≈6%)
 ```
 
 > The numbers above and the screenshot below are demonstration data. Remaining quota comes from the server; recent consumption is estimated from local samples.
+
+<img src="docs/images/menu-status-en.png" alt="Light and dark menu bar previews with the Codex logo and green or blue status dots" width="420">
 
 <img src="docs/images/preview-en.png" alt="CodexTip English panel showing remaining quota, recent consumption, other quotas and settings" width="390">
 
 ## Features
 
 - **Remaining quota:** percentage, actual quota window, and reset time. Select among the Codex, Spark, or other quotas returned by the server.
+- **Logo and status color:** a Codex logo replaces the product text in the menu bar. Its adjacent dot is green when valid quota data has been sampled within the last 10 minutes, and blue otherwise. The tooltip and panel also explain the status in text.
 - **Recent consumption:** defaults to the last 10 minutes and hour. Choose 5 / 10 / 30 minutes or 1 / 3 / 6 / 24 hours.
 - **Adjustable refresh:** every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute. Manual refresh is also available.
 - **Bilingual interface:** Chinese and English menu bar labels, dashboard, settings, status messages, and errors. Follow the system language or select one manually.
@@ -53,7 +56,7 @@ cd codextip
 ./scripts/install.sh
 ```
 
-The script installs the app at `~/Applications/CodexTip.app` and starts it in the background. No administrator permission is required. Look for `Codex …` in your menu bar.
+The script installs the app at `~/Applications/CodexTip.app` and starts it in the background. No administrator permission is required. Look for the Codex logo, status dot, and quota numbers in your menu bar.
 
 To build and run without installing:
 
@@ -86,6 +89,8 @@ Automatic discovery checks Codex / ChatGPT apps in `/Applications` and `~/Applic
 
 | Display | Meaning |
 | --- | --- |
+| Green dot | A valid percentage for the selected quota was sampled within the last 10 minutes; zero consumption still counts as data |
+| Blue dot | No valid sample in the last 10 minutes, such as during startup, a prolonged outage, or extended sleep |
 | `84%` | 84% of the selected quota remains |
 | `10m ≈1%` | An estimated 1 percentage point of the total quota was consumed in the last 10 minutes |
 | `≈1%*` | Partial history; only the recorded portion is included. The panel shows how many minutes are covered |
@@ -93,6 +98,8 @@ Automatic discovery checks Codex / ChatGPT apps in `/Applications` and `~/Applic
 | `· stale` / `· 旧` | Refresh failed or data expired; the displayed quota is the last successful reading |
 
 For example, used quota increasing from **15% to 16%** counts as **1 percentage point consumed**, not a relative percentage change in used or remaining quota.
+
+The dot indicates **data received within the last 10 minutes**, not whether consumption increased. After a failed refresh, the dot may remain green while the text says “stale” if a valid sample is still within that window. Color is recalculated against the current time even without new samples; the display updates approximately every 15 seconds.
 
 - **History starts when the app runs.** A full 10-minute or 1-hour comparison needs that much sampling history. Usage before installation is not reconstructed.
 - **Account-wide consumption.** Changes may include usage from other devices using the same account, not just this Mac.
@@ -163,9 +170,12 @@ Render a demonstration dashboard offscreen, without opening a foreground window 
 ```bash
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh --dark
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language en
 ```
 
 The CLI `--language en|zh` option affects only that command; it does not change saved app settings.
+
+Contributor instructions are in [AGENTS.md](AGENTS.md): verify, commit, and push completed file changes on the current branch, then verify the remote commit. See [asset provenance](docs/ASSETS.md) for the logo source and usage.
 
 ```text
 Sources/CodexTip/           Menu bar, dashboard, and app entry point

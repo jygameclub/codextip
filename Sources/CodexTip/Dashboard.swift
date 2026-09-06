@@ -96,6 +96,10 @@ final class DashboardController: NSViewController {
             status = (app.stale ? L10n.text("数据已过期 · ", "Stale · ") : "") + updated
         } else { status = L10n.text("正在连接本机 Codex…", "Connecting to local Codex…") }
         add(text(status, size: 10, color: app.error != nil ? .systemOrange : .secondaryLabelColor))
+        let hasData = app.hasRecentData
+        let statusRow = NSStackView(views: [NSImageView(image: MenuBarBrand.statusDot(hasData: hasData)), text(MenuBarBrand.label(hasData: hasData), size: 10, color: .secondaryLabelColor)])
+        statusRow.orientation = .horizontal; statusRow.spacing = 6; statusRow.alignment = .centerY
+        add(statusRow)
         if let storageError = app.storageError { add(text(storageError, size: 10, color: .systemOrange)) }
         let refresh = NSButton(title: app.refreshing ? L10n.text("刷新中…", "Refreshing…") : L10n.text("立即刷新", "Refresh now"), target: self, action: #selector(refreshClicked))
         refresh.bezelStyle = .rounded; refresh.isEnabled = !app.refreshing

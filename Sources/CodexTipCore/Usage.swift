@@ -123,6 +123,19 @@ public struct UsageHistory: Codable {
     public init() {}
     public var latest: UsageSnapshot? { samples.last }
 
+    /// Data presence is independent of consumption: a valid 0%-change sample counts.
+    /// Use wall-clock time so an old successful sample cannot stay green indefinitely.
+    public func hasRecentData(windowID: String, now: Date = Date()) -> Bool {
+        guard let latest else { return false }
+        return samples.reversed().contains { sample in
+            let age = now.timeIntervalSince(sample.date)
+            guard age >= 0, age <= 600, sample.accountKey == latest.accountKey,
+                  let window = sample.windows.first(where: { $0.id == windowID }),
+                  let used = window.window.usedPercent else { return false }
+            return used.isFinite && (0...100).contains(used)
+        }
+    }
+
     public mutating func append(_ sample: UsageSnapshot) {
         // A changed/missing identity or clock reversal must never join two usage histories.
         if let previous = latest,
