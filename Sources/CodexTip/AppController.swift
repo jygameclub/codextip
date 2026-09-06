@@ -205,25 +205,56 @@ final class AppController: NSObject, NSApplicationDelegate {
         let languageItem = item("语言 / Language")
         languageItem.submenu = languageMenu; menu.addItem(languageItem)
         menu.addItem(.separator())
-        let sizeMenu = NSMenu()
-        for size in Preferences.dotSizeOptions {
-            sizeMenu.addItem(item("\(size) pt", action: #selector(setDotSize(_:)), tag: size, on: preferences.effectiveDotSize == size))
+        let appearanceMenu = NSMenu()
+        for appearance in IndicatorAppearance.allCases {
+            let option = item(appearance.label, action: #selector(setIndicatorAppearance(_:)), on: preferences.effectiveIndicatorAppearance == appearance)
+            option.representedObject = appearance.rawValue
+            appearanceMenu.addItem(option)
         }
-        let sizeItem = item(L10n.text("状态圆点大小", "Status dot size"))
-        sizeItem.submenu = sizeMenu; menu.addItem(sizeItem)
-        for hasData in [true, false] {
-            let colorMenu = NSMenu()
-            for color in IndicatorColor.allCases {
-                let option = item(color.label, action: #selector(setDotColor(_:)), tag: hasData ? 1 : 0, on: preferences.dotColor(hasData: hasData) == color)
-                option.representedObject = color.rawValue
-                var swatchPreferences = preferences
-                swatchPreferences.dotSize = 10
-                swatchPreferences.dataDotColor = color
-                option.image = MenuBarBrand.statusDot(hasData: true, preferences: swatchPreferences)
-                colorMenu.addItem(option)
+        let appearanceItem = item(L10n.text("状态标识：", "Status indicator: ") + preferences.effectiveIndicatorAppearance.label)
+        appearanceItem.submenu = appearanceMenu; menu.addItem(appearanceItem)
+        if preferences.effectiveIndicatorAppearance == .emoji {
+            let sizes = NSMenu()
+            for size in Preferences.emojiSizeOptions {
+                sizes.addItem(item("\(size) pt", action: #selector(setEmojiSize(_:)), tag: size, on: preferences.effectiveEmojiSize == size))
             }
-            let colorItem = item(hasData ? L10n.text("有数据时的颜色", "Color when data is available") : L10n.text("无数据时的颜色", "Color when data is unavailable"))
-            colorItem.submenu = colorMenu; menu.addItem(colorItem)
+            let sizeItem = item(L10n.text("表情大小", "Emoji size"))
+            sizeItem.submenu = sizes; menu.addItem(sizeItem)
+            for hasData in [true, false] {
+                let choices = NSMenu()
+                let current = preferences.emoji(hasData: hasData)
+                let presets = StatusEmoji.presets.contains(current) ? StatusEmoji.presets : [current] + StatusEmoji.presets
+                for emoji in presets {
+                    let option = item(emoji, action: #selector(setStatusEmoji(_:)), tag: hasData ? 1 : 0, on: emoji == current)
+                    option.representedObject = emoji; choices.addItem(option)
+                }
+                choices.addItem(.separator())
+                choices.addItem(item(L10n.text("自定义表情…", "Custom emoji…"), action: #selector(customizeStatusEmoji(_:)), tag: hasData ? 1 : 0))
+                let label = hasData ? L10n.text("有数据时的表情", "Emoji when data is available") : L10n.text("无数据时的表情", "Emoji when data is unavailable")
+                let option = item(label + "  " + current)
+                option.submenu = choices; menu.addItem(option)
+            }
+        } else {
+            let sizeMenu = NSMenu()
+            for size in Preferences.dotSizeOptions {
+                sizeMenu.addItem(item("\(size) pt", action: #selector(setDotSize(_:)), tag: size, on: preferences.effectiveDotSize == size))
+            }
+            let sizeItem = item(L10n.text("状态圆点大小", "Status dot size"))
+            sizeItem.submenu = sizeMenu; menu.addItem(sizeItem)
+            for hasData in [true, false] {
+                let colorMenu = NSMenu()
+                for color in IndicatorColor.allCases {
+                    let option = item(color.label, action: #selector(setDotColor(_:)), tag: hasData ? 1 : 0, on: preferences.dotColor(hasData: hasData) == color)
+                    option.representedObject = color.rawValue
+                    var swatchPreferences = preferences
+                    swatchPreferences.dotSize = 10
+                    swatchPreferences.dataDotColor = color
+                    option.image = MenuBarBrand.statusDot(hasData: true, preferences: swatchPreferences)
+                    colorMenu.addItem(option)
+                }
+                let colorItem = item(hasData ? L10n.text("有数据时的颜色", "Color when data is available") : L10n.text("无数据时的颜色", "Color when data is unavailable"))
+                colorItem.submenu = colorMenu; menu.addItem(colorItem)
+            }
         }
         menu.addItem(.separator())
         for minutes in Preferences.refreshOptions {
@@ -271,6 +302,50 @@ final class AppController: NSObject, NSApplicationDelegate {
         L10n.language = language
         savePreferences()
         refresh()
+    }
+
+    @objc private func setIndicatorAppearance(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let appearance = IndicatorAppearance(rawValue: raw) else { return }
+        preferences.indicatorAppearance = appearance; savePreferences()
+    }
+
+    @objc private func setEmojiSize(_ sender: NSMenuItem) {
+        preferences.emojiSize = sender.tag; savePreferences()
+    }
+
+    @objc private func setStatusEmoji(_ sender: NSMenuItem) {
+        guard let emoji = StatusEmoji.normalized(sender.representedObject as? String) else { return }
+        if sender.tag == 1 { preferences.dataEmoji = emoji } else { preferences.noDataEmoji = emoji }
+        savePreferences()
+    }
+
+    @objc private func customizeStatusEmoji(_ sender: NSMenuItem) {
+        let hasData = sender.tag == 1
+        optionsMenu?.cancelTracking()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.popover.performClose(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.messageText = hasData ? L10n.text("有数据时的表情", "Emoji when data is available") : L10n.text("无数据时的表情", "Emoji when data is unavailable")
+            alert.informativeText = L10n.text("输入或粘贴一个表情。可按 Control + Command + 空格打开系统表情面板。", "Enter or paste one emoji. Press Control + Command + Space to open the system emoji picker.")
+            alert.addButton(withTitle: L10n.text("保存", "Save"))
+            alert.addButton(withTitle: L10n.text("取消", "Cancel"))
+            let field = NSTextField(string: self.preferences.emoji(hasData: hasData))
+            field.frame = NSRect(x: 0, y: 0, width: 300, height: 34)
+            field.font = .systemFont(ofSize: 22)
+            field.setAccessibilityLabel(alert.messageText)
+            alert.accessoryView = field
+            alert.window.initialFirstResponder = field
+            while alert.runModal() == .alertFirstButtonReturn {
+                guard let emoji = StatusEmoji.normalized(field.stringValue) else {
+                    alert.informativeText = L10n.text("请只输入一个完整表情，例如 🙂、👩🏽‍💻 或 🇯🇵。", "Enter exactly one complete emoji, such as 🙂, 👩🏽‍💻, or 🇯🇵.")
+                    continue
+                }
+                if hasData { self.preferences.dataEmoji = emoji } else { self.preferences.noDataEmoji = emoji }
+                self.savePreferences(); break
+            }
+        }
     }
 
     @objc private func setDotSize(_ sender: NSMenuItem) {

@@ -12,3 +12,7 @@ The PNG is the original Codex icon resource from the official OpenAI desktop cli
 Codex / OpenAI 名称和图标属于各自权利人，用于识别本工具监测的产品。CodexTip 是独立项目，并非 OpenAI 官方产品。
 
 Codex / OpenAI names and logos belong to their respective owners and identify the product being monitored. CodexTip is an independent project, not an official OpenAI product.
+
+表情模式使用 macOS 内置 Apple Color Emoji 字体动态绘制，不随仓库分发表情图片或字体。只替换旁边的状态标识，Codex Logo 不变。
+
+Emoji mode renders with the system Apple Color Emoji font. No emoji images or fonts are bundled; only the adjacent status marker changes, while the Codex logo stays the same.

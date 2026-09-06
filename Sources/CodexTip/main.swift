@@ -50,7 +50,7 @@ if args.contains("--local-tokens") {
         exit(report.isEmpty ? 1 : 0)
     } catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 } else if let index = args.firstIndex(of: "--render-menu-preview"), index + 1 < args.count {
-    do { try renderMenuPreview(to: args[index + 1], dotOptions: args.contains("--dot-options")) }
+    do { try renderMenuPreview(to: args[index + 1], dotOptions: args.contains("--dot-options"), emojiOptions: args.contains("--emoji-options")) }
     catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 } else if let index = args.firstIndex(of: "--render-preview"), index + 1 < args.count {
     do { try renderPreview(to: args[index + 1], dark: args.contains("--dark"), localTokens: args.contains("--local-preview"), pricingPartial: args.contains("--partial-pricing"), scrollEnd: args.contains("--preview-scroll-end")) }

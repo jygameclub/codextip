@@ -20,6 +20,7 @@ See your remaining quota and recent consumption over the last 10 minutes, hour, 
 
 - **Remaining quota:** percentage, actual quota window, and reset time. Select among the Codex, Spark, or other quotas returned by the server.
 - **Logo and status color:** a Codex logo replaces the product text in the menu bar. Its adjacent dot defaults to green when valid quota data has been sampled within the last 10 minutes, and blue otherwise. Dot size and both state colors are configurable. The tooltip and panel also explain the status in text.
+- **Emoji status indicators:** switch from dots to emoji in Settings. Configure available/unavailable states independently with presets or one custom emoji, at 12 / 14 / 16 / 18 pt.
 - **Recent consumption:** defaults to the last 10 minutes and hour. Choose 5 / 10 / 30 minutes or 1 / 3 / 6 / 24 hours.
 - **Cost estimates:** the Local tokens panel shows USD API equivalents, per-model costs, and bucket costs on hover. Input, cache reads/writes, output, and long contexts are priced separately; missing prices are clearly marked.
 - **Adjustable refresh:** every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute. Manual refresh is also available.
@@ -77,6 +78,9 @@ Click the menu bar quota, then **Settings / 设置**.
 | Setting | Options |
 | --- | --- |
 | 语言 / Language | System / 简体中文 / English; changes take effect immediately and are saved |
+| Status indicator | Dot / Emoji; upgrades keep dots by default, and both modes retain their settings |
+| Emoji size | 12, 14, 16, or 18 pt in Emoji mode; defaults to 16 pt |
+| Emoji when data is available / unavailable | Choose a preset or “Custom emoji…” for each state; defaults to 🙂 / 😴 and applies immediately |
 | Status dot size | 6, 8, 10, 12, or 14 pt; defaults to 10 pt, including upgrades without an explicit size preference |
 | Color when data is available / unavailable | Independently choose green, blue, cyan, orange, purple, red, pink, or yellow; defaults to green / blue |
 | Refresh interval | Every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute |
@@ -87,6 +91,12 @@ Click the menu bar quota, then **Settings / 设置**.
 | Choose Codex executable | Select the `codex` executable if automatic discovery fails |
 
 System mode uses Simplified Chinese when your primary system language is Chinese, and English otherwise. Native macOS controls such as the file picker may still follow your system language. Existing settings are preserved when upgrading; the new language preference defaults to System.
+
+**Use emoji:** Settings → Status indicator → Emoji. Reopen Settings to choose the available/unavailable emoji independently. Custom input accepts one complete emoji, including 👩🏽‍💻, 🇯🇵, or 👨‍👩‍👧‍👦. Paste it or press `Control + Command + Space` for the system emoji picker. Blank input, ordinary text, and multiple emoji are rejected; Cancel preserves settings.
+
+Emoji indicate the same 10-minute quota-data freshness as dots. They retain system colors; dot color settings apply only in Dot mode. Support for newer emoji depends on your macOS font version.
+
+<img src="docs/images/emoji-options-en.png" alt="Emoji status previews: 🙂, 😴 and custom emoji, at 12–18 pt in light and dark appearance" width="420">
 
 Automatic discovery checks Codex / ChatGPT apps in `/Applications` and `~/Applications`, Homebrew locations, `~/.local/bin`, and the process `PATH`. An explicitly selected executable is not silently replaced with a different client.
 
@@ -207,6 +217,7 @@ Render a demonstration dashboard offscreen, without opening a foreground window 
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language en
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/dot-options.png --language en --dot-options
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/emoji-options.png --language en --emoji-options
 ```
 
 The CLI `--language en|zh` option affects only that command; it does not change saved app settings.

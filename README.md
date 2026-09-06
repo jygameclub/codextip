@@ -20,6 +20,7 @@
 
 - **剩余额度**：显示百分比、真实额度周期及重置时间；支持选择服务器返回的普通 Codex、Spark 等额度。
 - **Logo 与状态颜色**：菜单栏用 Codex Logo 代替产品文字。旁边圆点在最近 10 分钟有有效额度采样时默认绿色，否则默认蓝色；大小和两种状态颜色均可设置，鼠标提示与面板也提供文字说明。
+- **表情状态标识**：设置中可将圆点切换为表情；有数据 / 无数据分别配置，支持预设、自定义单个完整表情及 12 / 14 / 16 / 18 pt 大小。
 - **近期消耗**：默认显示最近 10 分钟、1 小时，可选择 5 / 10 / 30 分钟、1 / 3 / 6 / 24 小时。
 - **费用估算**：本地 Token 页显示美元 API 等值估算、各模型费用及柱形悬停费用；按输入、缓存读写、输出和长上下文计价，缺价部分明确标注。
 - **可调刷新**：1、2、3、5、10 分钟，默认 1 分钟；也可立即刷新。
@@ -77,6 +78,9 @@ open -g ./dist/CodexTip.app
 | 设置项 | 说明 |
 | --- | --- |
 | 语言 / Language | 跟随系统 / 简体中文 / English，保存后立即生效 |
+| 状态标识 | 圆点 / 表情；升级默认保留圆点，切换后各自的设置都会保留 |
+| 表情大小 | 表情模式下可选 12、14、16、18 pt；默认 16 pt |
+| 有数据时 / 无数据时的表情 | 表情模式下分别选择预设或「自定义表情…」；默认 🙂 / 😴，保存后立即生效 |
 | 状态圆点大小 | 6、8、10、12、14 pt；默认 10 pt，升级后未设置的用户也使用新默认值 |
 | 有数据时 / 无数据时的颜色 | 分别选择绿色、蓝色、青色、橙色、紫色、红色、粉色或黄色；默认绿色 / 蓝色 |
 | 刷新间隔 | 每 1、2、3、5、10 分钟；默认 1 分钟 |
@@ -87,6 +91,12 @@ open -g ./dist/CodexTip.app
 | 指定 Codex 可执行文件 | 自动查找失败时，选择名为 `codex` 的可执行文件 |
 
 默认跟随系统：中文系统显示简体中文，其他系统显示英文。也可以手动选择语言；内置 macOS 文件选择器等系统控件可能仍遵循系统语言。已有设置会保留，新增语言设置默认跟随系统。
+
+**使用表情**：设置 →「状态标识」→「表情」，然后重新打开设置，分别选择「有数据时的表情」「无数据时的表情」。自定义支持粘贴单个完整表情（如 👩🏽‍💻、🇯🇵、👨‍👩‍👧‍👦）；也可按 `Control + Command + 空格` 打开系统表情面板。空白、普通文字或多个表情不会保存，取消不改变设置。
+
+表情仍表示最近 10 分钟是否有额度采样，和原来圆点含义相同。表情保持系统原色；圆点颜色只在圆点模式生效。新表情是否可显示取决于 macOS 自带字库。
+
+<img src="docs/images/emoji-options-zh.png" alt="中英文均支持的表情状态：🙂、😴 和自定义表情，12 至 18 pt 深浅色演示" width="420">
 
 Codex 自动查找范围包括 `/Applications` 和 `~/Applications` 中的 Codex / ChatGPT 应用、Homebrew、`~/.local/bin` 以及进程的 `PATH`。设置手动路径后，不会自动改用其他可执行文件。
 
@@ -209,6 +219,7 @@ swift test
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language zh
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/dot-options.png --language zh --dot-options
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/emoji-options.png --language zh --emoji-options
 ```
 
 CLI 的 `--language zh|en` 仅用于当前命令，不修改应用保存的设置。

@@ -128,7 +128,7 @@ final class DashboardController: NSViewController {
         } else { status = L10n.text("正在连接本机 Codex…", "Connecting to local Codex…") }
         add(text(status, size: 10, color: app.error != nil ? .systemOrange : .secondaryLabelColor))
         let hasData = app.hasRecentData
-        let statusRow = NSStackView(views: [NSImageView(image: MenuBarBrand.statusDot(hasData: hasData, preferences: app.preferences)), text(MenuBarBrand.label(hasData: hasData, preferences: app.preferences), size: 10, color: .secondaryLabelColor)])
+        let statusRow = NSStackView(views: [NSImageView(image: MenuBarBrand.statusIndicator(hasData: hasData, preferences: app.preferences)), text(MenuBarBrand.label(hasData: hasData, preferences: app.preferences), size: 10, color: .secondaryLabelColor)])
         statusRow.orientation = .horizontal; statusRow.spacing = 6; statusRow.alignment = .centerY
         add(statusRow)
         if let storageError = app.storageError { add(text(storageError, size: 10, color: .systemOrange)) }

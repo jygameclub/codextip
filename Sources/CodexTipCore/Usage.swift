@@ -208,6 +208,7 @@ public struct Preferences: Codable {
     public static let refreshOptions = [1, 2, 3, 5, 10]
     public static let periodOptions = [5, 10, 30, 60, 180, 360, 1440]
     public static let dotSizeOptions = [6, 8, 10, 12, 14]
+    public static let emojiSizeOptions = [12, 14, 16, 18]
     public var refreshMinutes = 1
     public var periods = [10, 60]
     public var selectedWindowID = "codex/primary"
@@ -218,7 +219,20 @@ public struct Preferences: Codable {
     public var dotSize: Int? = nil
     public var dataDotColor: IndicatorColor? = nil
     public var noDataDotColor: IndicatorColor? = nil
+    public var indicatorAppearance: IndicatorAppearance? = nil
+    public var emojiSize: Int? = nil
+    public var dataEmoji: String? = nil
+    public var noDataEmoji: String? = nil
     public init() {}
+
+    public var effectiveIndicatorAppearance: IndicatorAppearance { indicatorAppearance ?? .dot }
+    public var effectiveEmojiSize: Int {
+        guard let emojiSize, Self.emojiSizeOptions.contains(emojiSize) else { return 16 }
+        return emojiSize
+    }
+    public func emoji(hasData: Bool) -> String {
+        StatusEmoji.normalized(hasData ? dataEmoji : noDataEmoji) ?? (hasData ? "🙂" : "😴")
+    }
 
     public var effectiveDotSize: Int {
         guard let dotSize, Self.dotSizeOptions.contains(dotSize) else { return 10 }
@@ -230,6 +244,9 @@ public struct Preferences: Codable {
     }
 
     public mutating func validate() {
+        if let emojiSize, !Self.emojiSizeOptions.contains(emojiSize) { self.emojiSize = nil }
+        dataEmoji = StatusEmoji.normalized(dataEmoji)
+        noDataEmoji = StatusEmoji.normalized(noDataEmoji)
         if let dotSize, !Self.dotSizeOptions.contains(dotSize) { self.dotSize = nil }
         if !Self.refreshOptions.contains(refreshMinutes) { refreshMinutes = 1 }
         periods = Array(Set(periods.filter { Self.periodOptions.contains($0) })).sorted()
