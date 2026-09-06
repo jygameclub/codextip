@@ -21,6 +21,7 @@
 - **剩余额度**：显示百分比、真实额度周期及重置时间；支持选择服务器返回的普通 Codex、Spark 等额度。
 - **Logo 与状态颜色**：菜单栏用 Codex Logo 代替产品文字。旁边圆点在最近 10 分钟有有效额度采样时默认绿色，否则默认蓝色；大小和两种状态颜色均可设置，鼠标提示与面板也提供文字说明。
 - **近期消耗**：默认显示最近 10 分钟、1 小时，可选择 5 / 10 / 30 分钟、1 / 3 / 6 / 24 小时。
+- **费用估算**：本地 Token 页显示美元 API 等值估算、各模型费用及柱形悬停费用；按输入、缓存读写、输出和长上下文计价，缺价部分明确标注。
 - **可调刷新**：1、2、3、5、10 分钟，默认 1 分钟；也可立即刷新。
 - **中英文界面**：菜单栏、面板、设置、状态说明与错误提示均支持中文和英文，可跟随系统或手动选择。
 - **后台运行**：支持紧凑显示、可选登录时启动、唤醒后立即刷新。
@@ -124,6 +125,7 @@ Codex 自动查找范围包括 `/Applications` 和 `~/Applications` 中的 Codex
 - **范围**：读取 `~/.codex/sessions/**/*.jsonl` 与 `~/.codex/archived_sessions/**/*.jsonl`；启动进程设置了 `CODEX_HOME` 时改用该目录。统计包括该目录中不同账号留下的历史，切换账号不会清空本地 Token 统计。
 - **即时历史**：首次运行即可索引安装前保留的日志；缺失、删除或未落盘的记录无法恢复，也不会读取其他电脑上的日志。不能将 token 总数直接换算为订阅额度百分比。
 - **统计口径**：总量 = 输入 + 输出。缓存命中属于输入子集，推理属于输出子集，不再次累加；鼠标悬停数值或柱形查看准确计数。模型分布显示前 5 项，其余合计。
+- **费用**：按内置标准 API 单价显示美元估算，非订阅账单或实际扣费。金额随今天 / 7 天 / 30 天 / 全部时段切换；未知价格显示「已知部分」和未计价用量。价格核对日期及官方入口在面板底部，完整单价与限制见 [费用估算说明](docs/PRICING.md)。
 - **刷新**：随设置中的 1 / 2 / 3 / 5 / 10 分钟间隔后台更新，也可点击「刷新本地数据」独立离线刷新。首次扫描较大历史需要数十秒并显示进度；之后用本地索引续读新增行。
 - **去重与边界**：去除重复累计快照、同一会话的归档副本、已标记的子任务继承历史；兼容旧版 fork 的父日志前缀匹配。日志格式与继承元数据不完整时，统计可能存在缺失或重复；这不是账单审计数据。
 - **小屏幕**：内容超出可用高度时可滚动，仍可切换统计时段和查看底部详情。
@@ -202,6 +204,7 @@ swift test
 
 ```bash
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/local-tokens-zh.png --language zh --local-preview
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/pricing-partial.png --language zh --local-preview --partial-pricing --preview-scroll-end
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language zh

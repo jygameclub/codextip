@@ -39,10 +39,12 @@ public struct LocalTokenEvent: Codable, Hashable {
     public var date: Date
     public var model: String
     public var counts: TokenCounts
+    // Filled from the hashed session identity after deduplication; old caches remain readable.
+    public var pricingSession: String?
     // Signature from the original snapshot, useful for copied histories with rewritten timestamps.
     var cumulative: TokenCounts?
-    public init(date: Date, model: String, counts: TokenCounts, cumulative: TokenCounts? = nil) {
-        self.date = date; self.model = model; self.counts = counts; self.cumulative = cumulative
+    public init(date: Date, model: String, counts: TokenCounts, cumulative: TokenCounts? = nil, pricingSession: String? = nil) {
+        self.date = date; self.model = model; self.counts = counts; self.cumulative = cumulative; self.pricingSession = pricingSession
     }
 }
 
@@ -62,12 +64,14 @@ public struct TokenTrendBucket {
     public let start: Date
     public let end: Date
     public var counts = TokenCounts()
+    public var cost = TokenCostEstimate()
 }
 
 public struct LocalTokenSummary {
     public var counts = TokenCounts()
     public var events = 0
-    public var models: [(name: String, counts: TokenCounts)] = []
+    public var cost = TokenCostEstimate()
+    public var models: [(name: String, counts: TokenCounts, cost: TokenCostEstimate)] = []
     public var buckets: [TokenTrendBucket] = []
     public var hourly = false
     public var monthly = false
@@ -111,17 +115,32 @@ public struct LocalTokenReport {
             guard let next = calendar.date(byAdding: component, value: 1, to: cursor), next > cursor else { break }
             result.buckets.append(TokenTrendBucket(start: cursor, end: next)); cursor = next
         }
+        // GPT-5.4/5.5 use session-wide long-context pricing. Inspect retained history
+        // outside the selected date range as well, keeping one model's session separate.
+        struct SessionModel: Hashable { let session: String; let model: String }
+        var longSessions = Set<SessionModel>()
+        for event in events where event.date <= now && event.counts.input > 272_000 {
+            if let session = event.pricingSession, TokenPricing.price(for: event.model)?.sessionLongContext == true {
+                longSessions.insert(SessionModel(session: session, model: event.model))
+            }
+        }
         var models: [String: TokenCounts] = [:]
+        var modelCosts: [String: TokenCostEstimate] = [:]
         var index = 0
         for event in events where event.date >= start && event.date <= now {
+            let sessionIsLong = event.pricingSession.map { longSessions.contains(SessionModel(session: $0, model: event.model)) } ?? false
+            let cost = TokenPricing.estimate(model: event.model, counts: event.counts, sessionIsLong: sessionIsLong)
+            result.cost = result.cost + cost
+            modelCosts[event.model, default: TokenCostEstimate()] = modelCosts[event.model, default: TokenCostEstimate()] + cost
             result.counts = result.counts + event.counts; result.events += 1
             models[event.model, default: TokenCounts()] = models[event.model, default: TokenCounts()] + event.counts
             while index + 1 < result.buckets.count && event.date >= result.buckets[index].end { index += 1 }
             if result.buckets.indices.contains(index), event.date >= result.buckets[index].start && event.date < result.buckets[index].end {
                 result.buckets[index].counts = result.buckets[index].counts + event.counts
+                result.buckets[index].cost = result.buckets[index].cost + cost
             }
         }
-        result.models = models.map { (name: $0.key, counts: $0.value) }.sorted { $0.counts.total > $1.counts.total }
+        result.models = models.map { (name: $0.key, counts: $0.value, cost: modelCosts[$0.key] ?? TokenCostEstimate()) }.sorted { $0.counts.total > $1.counts.total }
         return result
     }
 

@@ -243,7 +243,11 @@ public final class LocalTokenIndexer {
                     duplicates += 1; continue
                 }
                 let signature = Signature(date: event.date, model: event.model, counts: event.counts)
-                if seen.insert(signature).inserted { events.append(event) } else { duplicates += 1 }
+                if seen.insert(signature).inserted {
+                    var pricedEvent = event
+                    pricedEvent.pricingSession = file.sessionKey
+                    events.append(pricedEvent)
+                } else { duplicates += 1 }
             }
         }
         events.sort { $0.date < $1.date }

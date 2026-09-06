@@ -39,6 +39,17 @@ final class LocalTokensController: NSViewController {
             let total = text(report.sourceAvailable ? shortTokens(summary.counts.total) : "—", size: 32, weight: .semibold)
             total.toolTip = exactTokens(summary.counts.total) + " tokens"
             add(row(total, text("TOKENS", size: 10, weight: .semibold, color: .secondaryLabelColor)))
+            let cost = summary.cost
+            let costLabel = text(report.sourceAvailable ? cost.display : "—", size: 18, weight: .semibold, color: .systemTeal)
+            costLabel.toolTip = L10n.text("普通输入 \(usd(cost.inputUSD)) · 缓存读取 \(usd(cost.cachedUSD)) · 缓存写入 \(usd(cost.cacheWriteUSD)) · 输出 \(usd(cost.outputUSD))",
+                                          "Uncached input \(usd(cost.inputUSD)) · Cache reads \(usd(cost.cachedUSD)) · Cache writes \(usd(cost.cacheWriteUSD)) · Output \(usd(cost.outputUSD))")
+            add(row(text(L10n.text("API 等值估算", "API-equivalent estimate"), size: 11, color: .secondaryLabelColor), costLabel))
+            add(text(L10n.text("USD · 标准 API 单价估算，非订阅账单或实际扣费。", "USD · Standard API rates; not your subscription bill or actual charges."), size: 9, color: .secondaryLabelColor))
+            if cost.isPartial {
+                let warning = text(L10n.text("\(shortTokens(cost.unpricedTokens)) tokens 缺少价格，未计入金额。", "\(shortTokens(cost.unpricedTokens)) tokens have no price and are excluded."), size: 10, color: .systemOrange)
+                warning.toolTip = cost.unpricedModels.sorted().joined(separator: ", ")
+                add(warning)
+            }
             let chart = TokenTrendView(buckets: summary.buckets, hourly: summary.hourly, monthly: summary.monthly)
             add(chart); chart.heightAnchor.constraint(equalToConstant: 132).isActive = true
             add(text(L10n.text("蓝：输入（含缓存）  青：输出  ·  悬停查看详情", "Blue: input (incl. cache)  Teal: output · Hover for details"), size: 9, color: .secondaryLabelColor))
@@ -62,17 +73,21 @@ final class LocalTokensController: NSViewController {
             add(text(L10n.text("模型分布", "By model"), size: 12, weight: .semibold))
             for model in summary.models.prefix(5) {
                 let name = model.name == "unknown" ? L10n.text("模型未知", "Unknown model") : model.name
-                let line = row(text(name, size: 11), text(shortTokens(model.counts.total), size: 11, weight: .medium))
-                line.toolTip = "\(name): \(exactTokens(model.counts.total)) tokens"
+                let line = row(text(name, size: 11), text("\(shortTokens(model.counts.total)) · \(model.cost.display)", size: 11, weight: .medium))
+                line.toolTip = "\(name): \(exactTokens(model.counts.total)) tokens · \(model.cost.display)"
                 add(line)
             }
             if summary.models.count > 5 {
                 let rest = summary.models.dropFirst(5).reduce(Int64(0)) { $0 + $1.counts.total }
-                add(row(text(L10n.text("其他 \(summary.models.count - 5) 个模型", "\(summary.models.count - 5) other models"), size: 10, color: .secondaryLabelColor), text(shortTokens(rest), size: 11)))
+                let restCost = summary.models.dropFirst(5).reduce(TokenCostEstimate()) { $0 + $1.cost }
+                add(row(text(L10n.text("其他 \(summary.models.count - 5) 个模型", "\(summary.models.count - 5) other models"), size: 10, color: .secondaryLabelColor), text("\(shortTokens(rest)) · \(restCost.display)", size: 11)))
             }
             if summary.events == 0 {
                 add(text(report.sourceAvailable ? L10n.text("此时段没有可用的 token 记录。", "No token records in this period.") : L10n.text("未找到 sessions / archived_sessions 本地日志。", "No local sessions / archived_sessions logs found."), size: 11, color: .secondaryLabelColor))
             }
+            let pricing = NSButton(title: L10n.text("价格表 · \(TokenPricing.checkedOn)", "Price table · \(TokenPricing.checkedOn)"), target: self, action: #selector(showPricing))
+            pricing.bezelStyle = .rounded; pricing.controlSize = .small; pricing.font = .systemFont(ofSize: 10)
+            add(pricing)
             let updated = L10n.date(report.scannedAt)
             add(text(L10n.text("\(report.fileCount) 个日志文件 · \(summary.events) 条用量记录 · \(updated)", "\(report.fileCount) log files · \(summary.events) usage records · \(updated)"), size: 9, color: .secondaryLabelColor))
             if report.skippedFiles > 0 || report.malformedRecords > 0 {
@@ -100,6 +115,10 @@ final class LocalTokensController: NSViewController {
         view.layoutSubtreeIfNeeded()
     }
 
+    @objc private func showPricing() {
+        NSWorkspace.shared.open(TokenPricing.sourceURL)
+    }
+
     @objc private func periodChanged(_ sender: NSSegmentedControl) {
         guard LocalTokenPeriod.allCases.indices.contains(sender.selectedSegment) else { return }
         period = LocalTokenPeriod.allCases[sender.selectedSegment]
@@ -116,7 +135,7 @@ private final class TokenTrendView: NSView {
         super.init(frame: .zero)
         setAccessibilityElement(true)
         setAccessibilityLabel(L10n.text("本地 token 用量趋势", "Local token usage trend"))
-        setAccessibilityValue(buckets.map { "\(dateLabel($0.start)): \(exactTokens($0.counts.total))" }.joined(separator: "\n"))
+        setAccessibilityValue(buckets.map { "\(dateLabel($0.start)): \(exactTokens($0.counts.total)), \($0.cost.display)" }.joined(separator: "\n"))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     private func dateLabel(_ date: Date) -> String {
@@ -155,6 +174,6 @@ private final class TokenTrendView: NSView {
         let index = Int(bitPattern: data) - 1
         guard buckets.indices.contains(index) else { return "" }
         let bucket = buckets[index]
-        return "\(dateLabel(bucket.start))\n\(exactTokens(bucket.counts.total)) tokens\n" + L10n.text("输入 \(exactTokens(bucket.counts.input)) · 输出 \(exactTokens(bucket.counts.output))", "Input \(exactTokens(bucket.counts.input)) · Output \(exactTokens(bucket.counts.output))")
+        return "\(dateLabel(bucket.start))\n\(exactTokens(bucket.counts.total)) tokens · \(bucket.cost.display)\n" + L10n.text("输入 \(exactTokens(bucket.counts.input)) · 输出 \(exactTokens(bucket.counts.output))", "Input \(exactTokens(bucket.counts.input)) · Output \(exactTokens(bucket.counts.output))")
     }
 }

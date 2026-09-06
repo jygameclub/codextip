@@ -21,6 +21,7 @@ See your remaining quota and recent consumption over the last 10 minutes, hour, 
 - **Remaining quota:** percentage, actual quota window, and reset time. Select among the Codex, Spark, or other quotas returned by the server.
 - **Logo and status color:** a Codex logo replaces the product text in the menu bar. Its adjacent dot defaults to green when valid quota data has been sampled within the last 10 minutes, and blue otherwise. Dot size and both state colors are configurable. The tooltip and panel also explain the status in text.
 - **Recent consumption:** defaults to the last 10 minutes and hour. Choose 5 / 10 / 30 minutes or 1 / 3 / 6 / 24 hours.
+- **Cost estimates:** the Local tokens panel shows USD API equivalents, per-model costs, and bucket costs on hover. Input, cache reads/writes, output, and long contexts are priced separately; missing prices are clearly marked.
 - **Adjustable refresh:** every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute. Manual refresh is also available.
 - **Bilingual interface:** Chinese and English menu bar labels, dashboard, settings, status messages, and errors. Follow the system language or select one manually.
 - **Background operation:** compact display, optional launch at login, and immediate refresh after waking from sleep.
@@ -122,6 +123,7 @@ Click the menu bar → **Local tokens**. The default is the last 7 calendar days
 - **Scope:** reads `~/.codex/sessions/**/*.jsonl` and `~/.codex/archived_sessions/**/*.jsonl`, or the directory specified by the app process’s `CODEX_HOME`. History from different accounts in this directory is combined. Switching accounts does not clear local token statistics.
 - **Existing history:** indexes retained logs from before installation. Missing, deleted, or unwritten records cannot be recovered. Other computers are not scanned. Token counts cannot be directly converted to subscription quota percentages.
 - **Counting:** total = input + output. Cached input and reasoning output are subsets and are never added again. Hover over a value or bar for exact counts. The top 5 models are listed, with the rest grouped together.
+- **Costs:** shows USD at bundled standard API rates, not subscription bills or actual charges. Estimates follow the selected period; missing prices show “Known part” and excluded tokens. The panel footer includes the price-check date and official link. See [cost estimates](docs/PRICING.md) for rates and exclusions.
 - **Refresh:** runs in the background at your configured 1 / 2 / 3 / 5 / 10 minute interval. “Refresh local data” also works independently offline. The initial scan may take tens of seconds with large histories and shows progress; subsequent scans resume from the local index.
 - **Deduplication:** removes repeated cumulative snapshots, archived copies of the same session, and marked inherited subagent history. Legacy forks use parent-prefix matching. Incomplete log formats or inheritance metadata may still cause missing or duplicate counts; this is not a billing audit.
 - **Small screens:** the panel scrolls when content exceeds the available height.
@@ -200,6 +202,7 @@ Render a demonstration dashboard offscreen, without opening a foreground window 
 
 ```bash
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/local-tokens-en.png --language en --local-preview
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/pricing-partial.png --language en --local-preview --partial-pricing --preview-scroll-end
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language en

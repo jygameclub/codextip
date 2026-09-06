@@ -331,9 +331,12 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc private func quit() { NSApp.terminate(nil) }
 
     // Offscreen visual QA uses the same dashboard, with deterministic demonstration data.
-    func loadPreview() {
+    func loadPreview(pricingPartial: Bool = false) {
         let now = Date()
         localTokens = .demo(now: now)
+        if pricingPartial, let index = localTokens?.events.indices.last {
+            localTokens?.events[index].model = "gpt-5.3-codex-spark"
+        }
         for i in 0...60 {
             let used = 9 + Double(i) / 10
             let window = RateWindow(usedPercent: used, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(4 * 86400).timeIntervalSince1970)

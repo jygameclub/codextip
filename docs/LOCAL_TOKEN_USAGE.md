@@ -53,9 +53,9 @@ The first scan streams all logs on a background worker. Later scans resume after
 - 旧版 fork 若没有父日志、没有继承边界且时间被重写，无法可靠判断所有继承数据；界面会提示缺少父日志。更复杂或未来的日志结构也可能导致缺失/重复。
 - 跨会话完全相同的时间/模型/计数签名可能极少数情况下属于独立请求；当前去重方式可能少计这些碰撞。未来日志若提供稳定事件 ID，可进一步改进。
 - 指纹只覆盖开头；保持前缀、inode 不变同时修改中部并追加的特殊重写可能不被识别，可退出应用删除索引后重建。
-- 不估算费用，不读取模型价格，不把 token 总数推算成订阅额度百分比。格式错误、不可读文件显示部分数据提示；未找到源目录显示 `—`。
+- 费用按内置标准 API 单价离线估算，非实际扣费，详见 [费用说明](PRICING.md)；不把 token 总数推算成订阅额度百分比。格式错误、不可读文件显示部分数据提示；未找到源目录显示 `—`。
 
-Local logs are not billing records and cannot recover missing, remote, or unwritten usage. Legacy forks without parent logs or inheritance boundaries may retain duplicates, with an in-app warning. Identical cross-session signatures could rarely represent distinct requests and be undercounted. Unusual middle-of-file edits combined with append operations may evade the prefix check; rebuilding the index resolves that case. No costs, prices, or quota-percent conversions are estimated. Invalid/unreadable data is marked partial; a missing source directory displays `—`.
+Local logs are not billing records and cannot recover missing, remote, or unwritten usage. Legacy forks without parent logs or inheritance boundaries may retain duplicates, with an in-app warning. Identical cross-session signatures could rarely represent distinct requests and be undercounted. Unusual middle-of-file edits combined with append operations may evade the prefix check; rebuilding the index resolves that case. Costs use bundled standard API rates offline, not actual charges; see [pricing notes](PRICING.md). Token counts are not converted into quota percentages. Invalid/unreadable data is marked partial; a missing source directory displays `—`.
 
 ## 验证 / Verification
 

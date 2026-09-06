@@ -203,11 +203,11 @@ private final class QuotaBar: NSView {
     }
 }
 
-func renderPreview(to path: String, dark: Bool, localTokens: Bool = false) throws {
+func renderPreview(to path: String, dark: Bool, localTokens: Bool = false, pricingPartial: Bool = false, scrollEnd: Bool = false) throws {
     _ = NSApplication.shared
     NSApp.setActivationPolicy(.prohibited)
     let controller = AppController()
-    controller.loadPreview()
+    controller.loadPreview(pricingPartial: pricingPartial)
     let dashboard = DashboardController(app: controller)
     dashboard.showsLocalTokens = localTokens
     let view = dashboard.view
@@ -219,6 +219,16 @@ func renderPreview(to path: String, dark: Bool, localTokens: Bool = false) throw
     window.contentView = view
     // Render our own UI offscreen; no screen recording or foreground window needed.
     view.layoutSubtreeIfNeeded()
+    if scrollEnd {
+        func scrollToBottom(_ node: NSView) {
+            if let scroll = node as? NSScrollView, let document = scroll.documentView {
+                scroll.contentView.scroll(to: NSPoint(x: 0, y: max(0, document.frame.height - scroll.contentView.bounds.height)))
+                scroll.reflectScrolledClipView(scroll.contentView)
+            } else { node.subviews.forEach(scrollToBottom) }
+        }
+        scrollToBottom(view)
+        view.layoutSubtreeIfNeeded()
+    }
     guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
     view.effectiveAppearance.performAsCurrentDrawingAppearance {
         view.cacheDisplay(in: view.bounds, to: bitmap)
