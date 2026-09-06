@@ -24,7 +24,9 @@ See your remaining quota and recent consumption over the last 10 minutes, hour, 
 - **Adjustable refresh:** every 1, 2, 3, 5, or 10 minutes; defaults to 1 minute. Manual refresh is also available.
 - **Bilingual interface:** Chinese and English menu bar labels, dashboard, settings, status messages, and errors. Follow the system language or select one manually.
 - **Background operation:** compact display, optional launch at login, and immediate refresh after waking from sleep.
-- **Local history:** keeps the last 48 hours of samples and detects account changes, quota resets, and sampling gaps.
+- **Quota history:** keeps the last 48 hours of samples and detects account changes, quota resets, and sampling gaps.
+
+- **Local token trends:** switch to Local tokens for Today / 7 days / 30 days / All history, input/output charts, cache hit rate, reasoning usage, and model distribution. Local logs are combined regardless of the signed-in account.
 
 CodexTip is a standalone macOS menu bar app. It reads quota through the local Codex App Server; it does not require a Codex plugin-store installation or modify the Codex application.
 
@@ -36,7 +38,7 @@ CodexTip is a standalone macOS menu bar app. It reads quota through the local Co
 | Build tools | Swift 5.9+ from Xcode or Xcode Command Line Tools |
 | Codex installation | Codex / ChatGPT desktop app, or a Codex CLI with App Server support |
 | Account | Codex signed in with a ChatGPT account that exposes subscription quota; API-key-only accounts do not expose this quota |
-| Network | Access to the Codex quota service when refreshing |
+| Network | Required for subscription quota; local token history works offline without login |
 
 There are no third-party Swift package dependencies. Installation currently builds from source for your Mac's architecture. The app has been verified on Apple Silicon; Intel Macs have not been verified.
 
@@ -111,6 +113,21 @@ The dot indicates **data received within the last 10 minutes**, not whether cons
 - **Sleep and network outages create gaps.** No successful sampling occurs while the Mac is asleep, the app is closed, or the network is unavailable. Refresh resumes afterwards. Comparisons recover once gaps, resets, or adjustments fall outside the selected period.
 - **Quota windows come from the API.** The primary window may be weekly; it is not assumed to be five hours.
 
+## Local token history
+
+Click the menu bar → **Local tokens**. The default is the last 7 calendar days, including today. Choose Today, 30 days, or All. Today uses hourly bars; 7 / 30 days use daily bars; All switches to monthly bars beyond 60 days. Dates use your Mac’s local timezone. Empty bars mean no recorded usage in that bucket.
+
+<img src="docs/images/local-tokens-en.png" alt="Demo: local token trends, input/output, cached input and model distribution" width="390">
+
+- **Scope:** reads `~/.codex/sessions/**/*.jsonl` and `~/.codex/archived_sessions/**/*.jsonl`, or the directory specified by the app process’s `CODEX_HOME`. History from different accounts in this directory is combined. Switching accounts does not clear local token statistics.
+- **Existing history:** indexes retained logs from before installation. Missing, deleted, or unwritten records cannot be recovered. Other computers are not scanned. Token counts cannot be directly converted to subscription quota percentages.
+- **Counting:** total = input + output. Cached input and reasoning output are subsets and are never added again. Hover over a value or bar for exact counts. The top 5 models are listed, with the rest grouped together.
+- **Refresh:** runs in the background at your configured 1 / 2 / 3 / 5 / 10 minute interval. “Refresh local data” also works independently offline. The initial scan may take tens of seconds with large histories and shows progress; subsequent scans resume from the local index.
+- **Deduplication:** removes repeated cumulative snapshots, archived copies of the same session, and marked inherited subagent history. Legacy forks use parent-prefix matching. Incomplete log formats or inheritance metadata may still cause missing or duplicate counts; this is not a billing audit.
+- **Small screens:** the panel scrolls when content exceeds the available height.
+
+Inspired by local usage tracking in [CodexBar](https://github.com/steipete/CodexBar) and [ccusage](https://github.com/ccusage/ccusage), with an independent native Swift implementation. Neither tool nor Node is required. See [implementation notes](docs/LOCAL_TOKEN_USAGE.md) for research versions, counting rules, and limitations.
+
 ## Data source and privacy
 
 CodexTip uses the interface described in the [OpenAI App Server documentation](https://learn.chatgpt.com/docs/app-server#6-rate-limits-chatgpt):
@@ -122,8 +139,8 @@ initialize → initialized → account/rateLimits/read
 
 It prefers `rateLimitsByLimitId` and supports the legacy `rateLimits` response. Remaining quota is calculated from `usedPercent`; window labels and reset times use `windowDurationMins` and `resetsAt`.
 
-- Reads quota only. No task creation, model generation, or quota reset-credit redemption.
-- CodexTip itself does not read chat history or read/copy authentication files, and never saves tokens. Authentication and quota requests are handled by the local Codex App Server.
+- Read-only quota and local usage access. No task creation, model generation, or quota reset-credit redemption.
+- The indexer scans log bytes sequentially and extracts only usage and required metadata. It does not display or store conversation text or tool output, read/copy authentication files, or save authentication tokens. The local Codex App Server handles authentication and quota requests.
 - No HTTP service or TCP listener. No data is uploaded to a project-owned server, and this project has no telemetry service.
 - Local history contains quota snapshots, sample times, intervals, and a SHA-256 account identifier for separating accounts. Switching accounts clears the previous comparison history. Missing account identity disables history comparisons.
 
@@ -132,9 +149,10 @@ Local files:
 ```text
 ~/Library/Application Support/CodexTip/history.json
 ~/Library/Application Support/CodexTip/preferences.json
+~/Library/Application Support/CodexTip/local-token-index.json
 ```
 
-The directory uses `700` permissions and the files use `600`. The last 48 hours of history persist across app restarts and upgrades.
+The directory uses `700` permissions and the files use `600`. Quota history covers the last 48 hours. The token index covers logs still retained in the source directories and stores timestamps, models, counters, hashed session/file identifiers, and byte offsets, without account identifiers. Both persist across restarts and upgrades. Quit the app and delete `local-token-index.json` to rebuild it on the next launch. Source logs are never modified.
 
 ## Update and uninstall
 
@@ -154,6 +172,8 @@ To uninstall, disable **Launch at login** in Settings, quit CodexTip, and remove
 
 **Quota cannot be read?** Check that Codex is signed in with a ChatGPT account, your connection works, and your client supports `account/rateLimits/read`. For custom CLI installations, select the correct `codex` file in Settings. Future App Server changes may require updating this client.
 
+**Local tokens show 0 or —?** `0` means no usable records in the selected period; `—` means no source log directory was found. Unreadable files trigger an incomplete-data warning. Only tokens actually recorded in local Codex logs are included, not cloud work that has not been synced to this Mac.
+
 **Why does consumption stay at 0%?** This tracks changes in server-reported quota percentages. Small amounts of usage may not appear immediately; this is not an exact token counter.
 
 **Does it work with the Codex chat window closed?** Yes, as long as the local Codex executable and login remain available. Quitting CodexTip stops sampling.
@@ -167,11 +187,19 @@ swift test
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --check --language zh
 ```
 
-Tests cover recent consumption, sample boundaries, resets, gaps, account isolation, file permissions, protocol handshakes, timeouts, language switching, and migration of existing preferences. `--check` reads live quota once without saving history.
+Tests cover recent consumption, sample boundaries, resets, gaps, account isolation, file permissions, protocol handshakes, timeouts, language switching, and migration of existing preferences. `--check` reads live quota once without saving history. Local token tests cover cumulative deduplication, cache/reasoning subsets, archived/forked sessions, incremental reads and rewrites, timezones, and daylight saving.
+
+Offline diagnostics (aggregate numbers only; no index writes or account connection):
+
+```bash
+./dist/CodexTip.app/Contents/MacOS/CodexTip --local-tokens
+./dist/CodexTip.app/Contents/MacOS/CodexTip --local-tokens --benchmark
+```
 
 Render a demonstration dashboard offscreen, without opening a foreground window or capturing the desktop:
 
 ```bash
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/local-tokens-en.png --language en --local-preview
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language en

@@ -24,7 +24,9 @@
 - **可调刷新**：1、2、3、5、10 分钟，默认 1 分钟；也可立即刷新。
 - **中英文界面**：菜单栏、面板、设置、状态说明与错误提示均支持中文和英文，可跟随系统或手动选择。
 - **后台运行**：支持紧凑显示、可选登录时启动、唤醒后立即刷新。
-- **本地历史**：保留最近 48 小时采样；识别账户切换、额度重置和采样中断。
+- **额度历史**：保留最近 48 小时采样；识别账户切换、额度重置和采样中断。
+
+- **本地 Token 趋势**：详情中切换「本地 Token」，查看今天 / 7 天 / 30 天 / 全部历史、输入与输出柱状图、缓存命中率、推理用量和模型分布；本机日志合并统计，与当前登录账号无关。
 
 这是独立的 macOS 菜单栏 App。它通过本机 Codex App Server 读取额度，不需要在 Codex 插件商店安装，也不修改 Codex 应用。
 
@@ -36,7 +38,7 @@
 | 构建工具 | Swift 5.9+；安装 Xcode 或 Xcode Command Line Tools |
 | Codex | 已安装 Codex / ChatGPT 桌面应用，或支持 App Server 的 Codex CLI |
 | 账户 | Codex 已使用能返回订阅额度的 ChatGPT 账户登录；API Key 账户不提供此类订阅额度 |
-| 网络 | 刷新时需要连接 Codex 额度服务 |
+| 网络 | 订阅额度刷新需要网络；本地 Token 历史可离线读取，不要求登录 |
 
 项目不依赖第三方 Swift 包。当前提供源码构建方式；构建脚本为本机架构生成 App，已在 Apple Silicon Mac 上验证，尚未验证 Intel Mac。
 
@@ -113,6 +115,21 @@ Codex 自动查找范围包括 `/Applications` 和 `~/Applications` 中的 Codex
 - **休眠或断网会出现缺口**：App 无法在电脑休眠、退出或网络不可用时完成采样；恢复后刷新。缺口、重置或调整移出所选时段后，统计自动恢复。
 - **周期以接口为准**：`primary` 可能是周额度，不能固定当作 5 小时额度。
 
+## 本地 Token 历史
+
+点击菜单栏 → **本地 Token**。默认查看最近 7 个自然日，可切换今天、30 天或全部历史；今天按小时，7 / 30 天按天，全部历史超过 60 天时按月显示。时间采用 Mac 的本地时区，今天包含已发生的记录；空柱表示该时段没有已记录用量。
+
+<img src="docs/images/local-tokens-zh.png" alt="演示数据：本地 Token 趋势、输入输出、缓存命中和模型分布" width="390">
+
+- **范围**：读取 `~/.codex/sessions/**/*.jsonl` 与 `~/.codex/archived_sessions/**/*.jsonl`；启动进程设置了 `CODEX_HOME` 时改用该目录。统计包括该目录中不同账号留下的历史，切换账号不会清空本地 Token 统计。
+- **即时历史**：首次运行即可索引安装前保留的日志；缺失、删除或未落盘的记录无法恢复，也不会读取其他电脑上的日志。不能将 token 总数直接换算为订阅额度百分比。
+- **统计口径**：总量 = 输入 + 输出。缓存命中属于输入子集，推理属于输出子集，不再次累加；鼠标悬停数值或柱形查看准确计数。模型分布显示前 5 项，其余合计。
+- **刷新**：随设置中的 1 / 2 / 3 / 5 / 10 分钟间隔后台更新，也可点击「刷新本地数据」独立离线刷新。首次扫描较大历史需要数十秒并显示进度；之后用本地索引续读新增行。
+- **去重与边界**：去除重复累计快照、同一会话的归档副本、已标记的子任务继承历史；兼容旧版 fork 的父日志前缀匹配。日志格式与继承元数据不完整时，统计可能存在缺失或重复；这不是账单审计数据。
+- **小屏幕**：内容超出可用高度时可滚动，仍可切换统计时段和查看底部详情。
+
+参考了 [CodexBar](https://github.com/steipete/CodexBar) 和 [ccusage](https://github.com/ccusage/ccusage) 的本地日志统计方式，使用原生 Swift 独立实现，无需安装这些工具或 Node。研究版本、去重口径和限制见 [本地统计实现说明](docs/LOCAL_TOKEN_USAGE.md)。
+
 ## 数据来源与隐私
 
 通过 [OpenAI App Server 文档](https://learn.chatgpt.com/docs/app-server#6-rate-limits-chatgpt) 描述的接口读取数据：
@@ -124,8 +141,8 @@ initialize → initialized → account/rateLimits/read
 
 优先使用 `rateLimitsByLimitId`，兼容旧版 `rateLimits`。根据 `usedPercent` 计算剩余百分比，根据 `windowDurationMins` 和 `resetsAt` 显示周期与重置时间。
 
-- 只读取额度，不创建任务、不发起模型生成、不兑换额度重置券。
-- CodexTip 自身不读取聊天记录，不读取或复制认证文件，不保存 token；登录和额度请求由本机 Codex App Server 处理。
+- 只读获取订阅额度和本地用量，不创建任务、不发起模型生成、不兑换额度重置券。
+- 本地索引顺序扫描日志字节，只提取用量与必要元数据，不显示或存储聊天正文、工具输出。不会读取或复制认证文件，不保存认证令牌；登录和额度请求由本机 Codex App Server 处理。
 - 不启动 HTTP 服务、不监听 TCP 端口，不向本项目的服务器上传数据；本项目没有遥测服务。
 - 本地历史只保存额度快照、采样时间、间隔和用于账户隔离的 SHA-256 标识。账户变化时清除旧账户比较历史；缺少账户标识时禁用历史比较。
 
@@ -134,9 +151,10 @@ initialize → initialized → account/rateLimits/read
 ```text
 ~/Library/Application Support/CodexTip/history.json
 ~/Library/Application Support/CodexTip/preferences.json
+~/Library/Application Support/CodexTip/local-token-index.json
 ```
 
-目录权限为 `700`，文件权限为 `600`。采样历史保留最近 48 小时，退出和升级后仍可读取。
+目录权限为 `700`，文件权限为 `600`。额度采样历史保留最近 48 小时；Token 索引覆盖仍保留在源目录的日志，保存时间、模型、用量、散列会话/文件标识和续读位置，不含账号标识。退出和升级后仍可读取。应用退出后可删除 `local-token-index.json`，下次启动会自动重建，原始日志不会修改。
 
 ## 更新与卸载
 
@@ -156,6 +174,8 @@ git pull --ff-only
 
 **显示无法读取额度？** 确认 Codex 已登录 ChatGPT 账户，网络正常且客户端版本支持 `account/rateLimits/read`。如果使用自定义 CLI 安装位置，在设置中选择正确的 `codex` 文件。当前 App Server 接口未来可能变化，需要相应更新客户端。
 
+**本地 Token 为 0 或 —？** `0` 表示所选时段未找到可用记录，`—` 表示没有找到源日志目录；不可读文件会提示统计可能不完整。仅统计 Codex 实际写入日志的 token，不包含未同步到本机的云端任务。
+
 **为什么消耗一直是 0%？** 这是服务器返回的额度百分比变化，较小的消耗可能尚未反映出来；它不是精确的 token 计数。
 
 **关闭 Codex 聊天窗口后还能工作吗？** 可以，只要本机 Codex 可执行文件与登录状态仍可用。退出 CodexTip 会停止采样。
@@ -169,11 +189,19 @@ swift test
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --check --language en
 ```
 
-测试覆盖近期消耗、采样边界、重置、缺口、账户隔离、历史存储权限、协议握手、超时、语言切换和旧版设置兼容。`--check` 只读一次实际额度，不写历史。
+测试覆盖近期消耗、采样边界、重置、缺口、账户隔离、历史存储权限、协议握手、超时、语言切换和旧版设置兼容。`--check` 只读一次实际额度，不写历史。本地用量测试覆盖累计去重、缓存与推理子集、归档/子任务、日志续读与重写、时区和夏令时。
+
+离线诊断（仅输出聚合数字，不写索引、不连接账号）：
+
+```bash
+./dist/CodexTip.app/Contents/MacOS/CodexTip --local-tokens
+./dist/CodexTip.app/Contents/MacOS/CodexTip --local-tokens --benchmark
+```
 
 离屏渲染演示界面，不打开前台窗口、不截取桌面：
 
 ```bash
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/local-tokens-zh.png --language zh --local-preview
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language zh

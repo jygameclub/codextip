@@ -8,6 +8,11 @@ final class AppController: NSObject, NSApplicationDelegate {
     private(set) var error: String?
     private(set) var storageError: String?
     private(set) var refreshing = false
+    private(set) var localTokens: LocalTokenReport?
+    private(set) var localTokensRefreshing = false
+    private(set) var localTokensProgress = (done: 0, total: 0)
+    private(set) var localTokensError: String?
+    private let tokenIndexer = LocalTokenIndexer()
     private var timer: Timer?
     private var clockTimer: Timer?
     private var statusItem: NSStatusItem!
@@ -124,6 +129,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     @objc func refresh() {
+        refreshLocalTokens()
         guard !refreshing else { return }
         refreshing = true; redraw()
         let path = preferences.executablePath
@@ -143,6 +149,31 @@ final class AppController: NSObject, NSApplicationDelegate {
                 case let .failure(error):
                     // Errors are intentionally generic; upstream diagnostics may contain account details.
                     self.error = (error as? ClientError)?.localizedDescription ?? L10n.text("无法读取额度，请检查 Codex 路径、登录状态和网络。", "Could not read quota. Check the Codex path, login and connection.")
+                }
+                self.redraw()
+            }
+        }
+    }
+
+    @objc func refreshLocalTokens() {
+        guard !localTokensRefreshing else { return }
+        localTokensRefreshing = true; localTokensProgress = (0, 0); localTokensError = nil
+        redraw()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            let result = Result {
+                try self.tokenIndexer.scan { done, total in
+                    DispatchQueue.main.async { [weak self] in
+                        self?.localTokensProgress = (done, total); self?.redraw()
+                    }
+                }
+            }
+            DispatchQueue.main.async {
+                self.localTokensRefreshing = false
+                switch result {
+                case let .success(report): self.localTokens = report
+                case .failure:
+                    self.localTokensError = L10n.text("本地日志索引失败，请检查日志目录与缓存目录权限。", "Local indexing failed. Check permissions for the log and cache folders.")
                 }
                 self.redraw()
             }
@@ -302,6 +333,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     // Offscreen visual QA uses the same dashboard, with deterministic demonstration data.
     func loadPreview() {
         let now = Date()
+        localTokens = .demo(now: now)
         for i in 0...60 {
             let used = 9 + Double(i) / 10
             let window = RateWindow(usedPercent: used, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(4 * 86400).timeIntervalSince1970)

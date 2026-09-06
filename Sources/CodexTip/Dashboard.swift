@@ -13,12 +13,21 @@ private final class DashboardBackground: NSView {
 
 final class DashboardController: NSViewController {
     private unowned let app: AppController
+    var showsLocalTokens = false
+    private var localScroll: NSScrollView?
+    private lazy var localPanel: LocalTokensController = {
+        let panel = LocalTokensController(app: app)
+        panel.onPeriodChange = { [weak self] in self?.rebuild() }
+        return panel
+    }()
     init(app: AppController) { self.app = app; super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func loadView() { view = DashboardBackground(frame: NSRect(x: 0, y: 0, width: 390, height: 580)); rebuild() }
 
     func rebuild() {
         guard isViewLoaded else { return }
+        let scrollOffset = localScroll?.contentView.bounds.origin.y ?? 0
+        localScroll = nil
         view.subviews.forEach { $0.removeFromSuperview() }
         let stack = NSStackView()
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 16
@@ -32,6 +41,28 @@ final class DashboardController: NSViewController {
         func add(_ child: NSView) {
             stack.addArrangedSubview(child)
             child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+
+        let tabs = NSSegmentedControl(labels: [L10n.text("订阅额度", "Quota"), L10n.text("本地 Token", "Local tokens")], trackingMode: .selectOne, target: self, action: #selector(tabChanged(_:)))
+        tabs.selectedSegment = showsLocalTokens ? 1 : 0
+        tabs.segmentDistribution = .fillEqually
+        add(tabs)
+        if showsLocalTokens {
+            let panel = localPanel.view
+            localPanel.rebuild()
+            let scroll = NSScrollView()
+            scroll.drawsBackground = false; scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
+            scroll.scrollerStyle = .overlay
+            scroll.documentView = panel
+            let available = max(240, min(620, (NSScreen.main?.visibleFrame.height ?? 900) - 150))
+            let height = min(panel.frame.height, available)
+            add(scroll)
+            scroll.heightAnchor.constraint(equalToConstant: height).isActive = true
+            localScroll = scroll
+            finishLayout(stack)
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: min(scrollOffset, max(0, panel.frame.height - height))))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            return
         }
 
         let title = text("CodexTip", size: 17, weight: .semibold)
@@ -110,6 +141,10 @@ final class DashboardController: NSViewController {
         settings.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
         settings.imagePosition = .imageLeading
         add(row(refresh, settings))
+        finishLayout(stack)
+    }
+
+    private func finishLayout(_ stack: NSStackView) {
         view.layoutSubtreeIfNeeded()
         let height = stack.fittingSize.height + 44
         preferredContentSize = NSSize(width: 390, height: height)
@@ -117,11 +152,16 @@ final class DashboardController: NSViewController {
         view.layoutSubtreeIfNeeded()
     }
 
+    @objc private func tabChanged(_ sender: NSSegmentedControl) {
+        showsLocalTokens = sender.selectedSegment == 1
+        rebuild()
+    }
+
     @objc private func refreshClicked() { app.refresh() }
     @objc private func settingsClicked(_ sender: NSButton) { app.showSettings(from: sender) }
 }
 
-private func text(_ string: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor = .labelColor) -> NSTextField {
+func text(_ string: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor = .labelColor) -> NSTextField {
     let field = NSTextField(wrappingLabelWithString: string)
     field.font = .systemFont(ofSize: size, weight: weight); field.textColor = color
     field.isSelectable = false; field.maximumNumberOfLines = 0
@@ -129,13 +169,13 @@ private func text(_ string: String, size: CGFloat, weight: NSFont.Weight = .regu
     return field
 }
 
-private func vertical(spacing: CGFloat) -> NSStackView {
+func vertical(spacing: CGFloat) -> NSStackView {
     let stack = NSStackView()
     stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = spacing
     return stack
 }
 
-private func row(_ left: NSView, _ right: NSView) -> NSStackView {
+func row(_ left: NSView, _ right: NSView) -> NSStackView {
     let spacer = NSView()
     spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
     let stack = NSStackView(views: [left, spacer, right])
@@ -144,7 +184,7 @@ private func row(_ left: NSView, _ right: NSView) -> NSStackView {
     return stack
 }
 
-private func separator() -> NSView {
+func separator() -> NSView {
     let line = NSBox(); line.boxType = .separator
     line.heightAnchor.constraint(equalToConstant: 1).isActive = true
     return line
@@ -163,12 +203,13 @@ private final class QuotaBar: NSView {
     }
 }
 
-func renderPreview(to path: String, dark: Bool) throws {
+func renderPreview(to path: String, dark: Bool, localTokens: Bool = false) throws {
     _ = NSApplication.shared
     NSApp.setActivationPolicy(.prohibited)
     let controller = AppController()
     controller.loadPreview()
     let dashboard = DashboardController(app: controller)
+    dashboard.showsLocalTokens = localTokens
     let view = dashboard.view
     view.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     dashboard.rebuild()

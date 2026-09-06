@@ -13,7 +13,30 @@ if let index = args.firstIndex(of: "--language"), index + 1 < args.count {
     default: fputs("Usage: --language en|zh\n", stderr); exit(2)
     }
 }
-if args.contains("--check") {
+if args.contains("--local-tokens") {
+    do {
+        // Offline diagnostic. No Codex process, network request, or quota-account lookup.
+        let indexer = LocalTokenIndexer(cacheURL: nil)
+        let start = Date()
+        let report = try indexer.scan()
+        let seconds = Date().timeIntervalSince(start)
+        let summary = report.summary(period: .all)
+        var output: [String: Any] = ["files": report.fileCount, "events": summary.events,
+            "input": summary.counts.input, "cached": summary.counts.cached, "output": summary.counts.output,
+            "reasoning": summary.counts.reasoning, "total": summary.counts.total,
+            "skippedFiles": report.skippedFiles, "malformedRecords": report.malformedRecords,
+            "unresolvedForks": report.unresolvedForks,
+            "deduplicated": report.duplicates, "seconds": seconds,
+            "models": summary.models.map { ["model": $0.name, "tokens": $0.counts.total] as [String: Any] }]
+        if args.contains("--benchmark") {
+            let warmStart = Date()
+            let warm = try indexer.scan()
+            output["warmSeconds"] = Date().timeIntervalSince(warmStart)
+            output["warmBytesRead"] = warm.bytesRead
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys]), as: UTF8.self))
+    } catch { fputs("Local token indexing failed.\n", stderr); exit(1) }
+} else if args.contains("--check") {
     do {
         let snapshot = try CodexClient.fetch(interval: 60)
         let report = snapshot.windows.map { window in
@@ -27,7 +50,7 @@ if args.contains("--check") {
     do { try renderMenuPreview(to: args[index + 1], dotOptions: args.contains("--dot-options")) }
     catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 } else if let index = args.firstIndex(of: "--render-preview"), index + 1 < args.count {
-    do { try renderPreview(to: args[index + 1], dark: args.contains("--dark")) }
+    do { try renderPreview(to: args[index + 1], dark: args.contains("--dark"), localTokens: args.contains("--local-preview")) }
     catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 } else {
     let app = NSApplication.shared
