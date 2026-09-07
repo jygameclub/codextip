@@ -93,6 +93,18 @@ final class UsageTests: XCTestCase {
         measured(delta(history), points: 5.2)
     }
 
+    func testResetDoesNotEraseHourWhenTenMinutesHaveRecovered() {
+        var history = UsageHistory()
+        for minute in 0...60 {
+            let beforeReset = minute < 45
+            history.append(sample(Double(minute), beforeReset ? 10 + Double(minute) * 0.1 : Double(minute - 45) * 0.2,
+                                  reset: beforeReset ? 1_790_000_000 : 1_800_000_000))
+        }
+        measured(delta(history), points: 2)
+        XCTAssertEqual(delta(history, minutes: 60).compact, "≈7.4%*")
+        XCTAssertEqual(history.samples.count, 61)
+    }
+
     func testResetNotReportedAsZero() {
         var history = UsageHistory()
         history.append(sample(0, 90))
@@ -118,7 +130,48 @@ final class UsageTests: XCTestCase {
         history.append(sample(0, 90))
         for i in 1...12 { history.append(sample(Double(i), Double(i), reset: 1_800_000_000)) }
         measured(delta(history), points: 10)
-        XCTAssertEqual(delta(history, minutes: 60), .unavailable("期间额度已重置或调整"))
+        XCTAssertEqual(delta(history, minutes: 60), .resetPartial(points: 11, coverage: 660))
+    }
+
+    func testMultipleResetsPreserveKnownSegmentsWithoutCountingRefills() {
+        var history = UsageHistory()
+        for (minute, used, reset) in [(0.0, 90.0, 1_790_000_000.0), (1, 95, 1_790_000_000),
+                                     (2, 2, 1_800_000_000), (3, 4, 1_800_000_000),
+                                     (4, 1, 1_810_000_000), (5, 4, 1_810_000_000)] {
+            history.append(sample(minute, used, reset: reset))
+        }
+        XCTAssertEqual(delta(history), .resetPartial(points: 10, coverage: 180))
+        XCTAssertEqual(delta(history).menuLabel(minutes: 60), "1h/10%*")
+        XCTAssertEqual(UsageActivity(consumption: delta(history)), .active)
+    }
+
+    func testZeroKnownConsumptionAcrossResetRemainsUnknownActivity() {
+        var history = UsageHistory()
+        history.append(sample(0, 5)); history.append(sample(1, 5))
+        history.append(sample(2, 0, reset: 1_800_000_000)); history.append(sample(3, 0, reset: 1_800_000_000))
+        XCTAssertEqual(delta(history), .resetPartial(points: 0, coverage: 120))
+        XCTAssertEqual(delta(history).compact, "≈0%*")
+        XCTAssertEqual(UsageActivity(consumption: delta(history)), .unknown)
+        XCTAssertTrue(delta(history).detail.contains("未计入"))
+        L10n.language = .english
+        XCTAssertTrue(delta(history).detail.contains("excluded"))
+    }
+
+    func testCrossResetEstimateInterpolatesOnlyComparableBoundaryInterval() {
+        var history = UsageHistory()
+        history.append(sample(0, 10, interval: 300)); history.append(sample(5, 20, interval: 300))
+        history.append(sample(6, 0, interval: 300, reset: 1_800_000_000))
+        history.append(sample(10, 4, interval: 300, reset: 1_800_000_000))
+        history.append(sample(12, 6, interval: 300, reset: 1_800_000_000))
+        XCTAssertEqual(delta(history), .resetPartial(points: 12, coverage: 540))
+    }
+
+    func testResetDoesNotHideUnrelatedSamplingGap() {
+        var history = UsageHistory()
+        history.append(sample(0, 10)); history.append(sample(1, 12))
+        history.append(sample(2, 0, reset: 1_800_000_000)); history.append(sample(3, 1, reset: 1_800_000_000))
+        history.append(sample(9, 2, reset: 1_800_000_000))
+        XCTAssertEqual(delta(history), .unavailable("采样中断，等待新数据"))
     }
 
     func testSleepGapUnavailableThenRecovers() {

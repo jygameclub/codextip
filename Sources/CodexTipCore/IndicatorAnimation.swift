@@ -21,6 +21,8 @@ public enum UsageActivity: Equatable {
     public init(consumption: Consumption) {
         switch consumption {
         case let .measured(points, _, _) where points.isFinite: self = points > 0 ? .active : .idle
+        case let .resetPartial(points, _) where points.isFinite && points > 0: self = .active
+        // Zero in recorded intervals cannot establish idleness across an unknown reset.
         default: self = .unknown
         }
     }

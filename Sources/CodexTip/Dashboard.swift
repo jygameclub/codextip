@@ -133,7 +133,7 @@ final class DashboardController: NSViewController {
             line.widthAnchor.constraint(equalTo: recent.widthAnchor).isActive = true
         }
         add(recent)
-        add(text(L10n.text("% 表示所选额度的百分点变化，按采样估算。\n* 尚未覆盖完整时段；— 暂无可靠统计。", "% is the estimated percentage-point change in this quota.\n* Partial history; — no reliable estimate yet."), size: 10, color: .secondaryLabelColor))
+        add(text(L10n.text("% 表示所选额度的百分点变化，按采样估算。\n* 部分统计，可能排除了重置区间；— 暂无可靠统计。", "% is the estimated percentage-point change in this quota.\n* Partial; may exclude resets. — No reliable estimate."), size: 10, color: .secondaryLabelColor))
 
         let otherWindows = (app.history.latest?.windows ?? []).filter { $0.id != selected?.id }
         if !otherWindows.isEmpty {
@@ -234,11 +234,11 @@ private final class QuotaBar: NSView {
     }
 }
 
-func renderPreview(to path: String, dark: Bool, localTokens: Bool = false, pricingPartial: Bool = false, scrollEnd: Bool = false) throws {
+func renderPreview(to path: String, dark: Bool, localTokens: Bool = false, pricingPartial: Bool = false, scrollEnd: Bool = false, quotaReset: Bool = false) throws {
     _ = NSApplication.shared
     NSApp.setActivationPolicy(.prohibited)
     let controller = AppController()
-    controller.loadPreview(pricingPartial: pricingPartial)
+    controller.loadPreview(pricingPartial: pricingPartial, quotaReset: quotaReset)
     let dashboard = DashboardController(app: controller)
     dashboard.showsLocalTokens = localTokens
     let view = dashboard.view

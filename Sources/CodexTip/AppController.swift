@@ -122,7 +122,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                                  reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
                                  suspended: sleeping || !statusItem.isVisible)
         statusItem.button?.setAccessibilityLabel(L10n.text("Codex 额度", "Codex quota"))
-        statusItem.button?.toolTip = L10n.text("Codex 剩余额度；10m/1% 表示近 10 分钟约消耗 1 个百分点。* 表示部分时段，— 表示暂无统计。点击查看详情和设置。", "Remaining Codex quota. 10m/1% means an estimated 1 percentage point consumed in 10 minutes. * means partial history; — means unavailable. Click for details and settings.")
+        statusItem.button?.toolTip = L10n.text("Codex 剩余额度；10m/1% 表示近 10 分钟约消耗 1 个百分点。* 表示部分统计（可能排除了重置区间），— 表示暂无统计。点击查看详情和设置。", "Remaining Codex quota. 10m/1% means an estimated 1 percentage point consumed in 10 minutes. * means partial statistics (reset intervals may be excluded); — means unavailable. Click for details and settings.")
         statusItem.button?.toolTip = (statusItem.button?.toolTip ?? "") + "\n" + MenuBarBrand.label(activity: activity, preferences: preferences)
         statusItem.button?.setAccessibilityValue(title + " · " + MenuBarBrand.label(activity: activity, preferences: preferences))
         if popover.isShown && optionsMenu == nil { dashboard.rebuild() }
@@ -440,15 +440,17 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc private func quit() { NSApp.terminate(nil) }
 
     // Offscreen visual QA uses the same dashboard, with deterministic demonstration data.
-    func loadPreview(pricingPartial: Bool = false) {
+    func loadPreview(pricingPartial: Bool = false, quotaReset: Bool = false) {
         let now = Date()
         localTokens = .demo(now: now)
         if pricingPartial, let index = localTokens?.events.indices.last {
             localTokens?.events[index].model = "gpt-5.3-codex-spark"
         }
         for i in 0...60 {
-            let used = 9 + Double(i) / 10
-            let window = RateWindow(usedPercent: used, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(4 * 86400).timeIntervalSince1970)
+            let afterReset = quotaReset && i >= 45
+            let used = afterReset ? Double(i - 45) * 0.2 : 9 + Double(i) / 10
+            let window = RateWindow(usedPercent: used, windowDurationMins: 10080,
+                                    resetsAt: now.addingTimeInterval(Double(afterReset ? 7 : 4) * 86400).timeIntervalSince1970)
             history.append(UsageSnapshot(date: now.addingTimeInterval(Double(i - 60) * 60), interval: 60, accountKey: "preview", windows: [
                 WindowSnapshot(id: "codex/primary", bucketID: "codex", name: "Codex", plan: "pro", window: window),
                 WindowSnapshot(id: "codex_bengalfox/secondary", bucketID: "codex_bengalfox", name: "GPT-5.3-Codex-Spark", plan: "pro", window: RateWindow(usedPercent: 66, windowDurationMins: 10080, resetsAt: window.resetsAt))

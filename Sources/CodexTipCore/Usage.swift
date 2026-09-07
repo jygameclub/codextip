@@ -96,6 +96,8 @@ public struct UsageSnapshot: Codable, Equatable {
 
 public enum Consumption: Equatable {
     case measured(points: Double, coverage: TimeInterval, partial: Bool)
+    /// Sum of observed intervals only; the interval spanning a reset is unknown.
+    case resetPartial(points: Double, coverage: TimeInterval)
     case unavailable(String)
 
     /// Short menu-bar notation; approximation is explained in the dashboard/tooltip.
@@ -103,6 +105,7 @@ public enum Consumption: Equatable {
         let amount: String
         switch self {
         case let .measured(points, _, partial): amount = "\(percent(points))%\(partial ? "*" : "")"
+        case let .resetPartial(points, _): amount = "\(percent(points))%*"
         case .unavailable: amount = "—"
         }
         return "\(Preferences.periodLabel(minutes))/\(amount)"
@@ -111,6 +114,7 @@ public enum Consumption: Equatable {
     public var compact: String {
         switch self {
         case let .measured(points, _, partial): return "≈\(percent(points))%\(partial ? "*" : "")"
+        case let .resetPartial(points, _): return "≈\(percent(points))%*"
         case .unavailable: return "—"
         }
     }
@@ -119,6 +123,9 @@ public enum Consumption: Equatable {
         switch self {
         case let .measured(_, coverage, partial):
             return partial ? L10n.text("已记录 \(max(1, Int(coverage / 60))) 分钟", "\(max(1, Int(coverage / 60))) min recorded") : L10n.text("采样估算", "Estimated from samples")
+        case let .resetPartial(_, coverage):
+            let minutes = max(1, Int(coverage / 60))
+            return L10n.text("重置／调整区间未计入 · 已记录 \(minutes) 分钟", "Reset/adjustment excluded · \(minutes) min recorded")
         case let .unavailable(reason): return reason
         }
     }
@@ -168,8 +175,9 @@ public struct UsageHistory: Codable {
         let slice = Array(samples[index...])
         guard slice.count >= 2 else { return .unavailable(L10n.text("正在积累采样", "Collecting samples")) }
         let partial = slice[0].date > target
-        var baseline: Double?
-        var endValue: Double?
+        var points = 0.0
+        var coverage: TimeInterval = 0
+        var crossedReset = false
         for pair in zip(slice, slice.dropFirst()) {
             let (a, b) = pair
             guard a.accountKey == last.accountKey, b.accountKey == last.accountKey,
@@ -179,7 +187,7 @@ public struct UsageHistory: Codable {
                   ua.isFinite, ub.isFinite, (0...100).contains(ua), (0...100).contains(ub),
                   let duration = wa.windowDurationMins, duration > 0,
                   wb.windowDurationMins == duration,
-                  let ra = wa.resetsAt, let rb = wb.resetsAt else {
+                  let ra = wa.resetsAt, let rb = wb.resetsAt, ra.isFinite, rb.isFinite else {
                 return .unavailable(L10n.text("额度数据不完整", "Incomplete quota data"))
             }
             let gap = b.date.timeIntervalSince(a.date)
@@ -190,17 +198,22 @@ public struct UsageHistory: Codable {
             // Idle windows may shift their reset time before any usage starts.
             guard ub >= ua, (abs(ra - rb) <= 2 || (ua == 0 && ub == 0)),
                   !(ra > a.date.timeIntervalSince1970 && ra <= b.date.timeIntervalSince1970) else {
-                return .unavailable(L10n.text("期间额度已重置或调整", "Quota reset or adjusted in this period"))
+                crossedReset = true
+                continue
             }
-            if baseline == nil {
-                let fraction = max(0, min(1, target.timeIntervalSince(a.date) / gap))
-                baseline = ua + (ub - ua) * fraction
-            }
-            endValue = ub
+            // Sum each comparable interval; never subtract percentages across resets.
+            // Interpolate only the portion of the first valid interval inside the range.
+            let included = b.date.timeIntervalSince(max(target, a.date))
+            points += (ub - ua) * included / gap
+            coverage += included
         }
-        guard let baseline, let endValue else { return .unavailable(L10n.text("正在积累采样", "Collecting samples")) }
-        let coverage = last.date.timeIntervalSince(max(target, slice[0].date))
-        return .measured(points: max(0, endValue - baseline), coverage: coverage, partial: partial)
+        guard coverage > 0 else {
+            return .unavailable(crossedReset
+                ? L10n.text("期间额度已重置或调整", "Quota reset or adjusted in this period")
+                : L10n.text("正在积累采样", "Collecting samples"))
+        }
+        if crossedReset { return .resetPartial(points: points, coverage: coverage) }
+        return .measured(points: points, coverage: coverage, partial: partial)
     }
 }
 

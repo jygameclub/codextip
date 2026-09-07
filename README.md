@@ -115,11 +115,11 @@ Codex 自动查找范围包括 `/Applications` 和 `~/Applications` 中的 Codex
 | --- | --- |
 | 有消耗（默认绿色 / 🙂） | 所选额度最近 10 分钟的估算消耗 > 0；仅采样成功不会进入此状态 |
 | 无消耗（默认蓝色 / 😴） | 最近 10 分钟的估算消耗 ≤ 0，如 `10m/0%` |
-| 暂无可靠统计（默认蓝色 / 😴） | 数据过期、采样不足、中断或重置；提示显示「暂无可靠统计」，不当成 0 |
+| 暂无可靠统计（默认蓝色 / 😴） | 数据过期、采样不足、中断，或跨重置且已知消耗为 0；提示显示「暂无可靠统计」，不当成完整时段的 0 |
 | `84%` | 所选额度当前剩余 84% |
 | `10m/1%` | 最近 10 分钟大约消耗了总额度的 1 个百分点 |
 | `10m/1%*` | 尚未覆盖完整时段，仅统计已记录的部分；面板显示覆盖分钟数 |
-| `—` | 刚启动、缺少数据、账户标识不可用、采样中断或期间发生重置，暂无可靠估算 |
+| `—` | 刚启动、缺少数据、账户标识不可用、采样中断，或只有重置前后两个无法比较的采样，暂无可靠估算 |
 | `· 旧` / `· stale` | 刷新失败或数据过期，当前显示上次成功读取的额度 |
 
 菜单栏使用 `10m/1%` 紧凑格式；`/` 左侧是时段，右侧是估算消耗，省略 `≈` 以节省空间。面板仍显示 `≈1%`，`*` 与 `—` 保留原含义。圆点大小和颜色修改后立即生效并自动保存，面板和鼠标提示同步更新颜色名称。
@@ -128,12 +128,14 @@ Codex 自动查找范围包括 `/Applications` 和 `~/Applications` 中的 Codex
 
 例如，已用额度从 **15% 增至 16%**，消耗记为 **1 个百分点**，不是已用量或剩余量的相对增长率。
 
+**重置后保留近期统计**：10 分钟可以正常显示时，1 小时不会仅因跨过一次额度重置而整段变成 `—`。应用分别累计重置／调整前后的可比较区间，跳过跨重置的那对采样，显示如 `1h/7.4%*`；面板注明「重置／调整区间未计入」及实际覆盖分钟数。不会把额度回补算成消耗，也不会猜测重置区间的用量。若只有跨重置的一对采样，仍显示 `—`；若已知区间合计为 0，则显示 `0%*`，活跃状态保持未知，因为不能确定被排除区间没有消耗。重置移出统计窗口后自动恢复普通显示。原始历史不会因重置删除；其他缺失数据、采样中断、周期变化与账户隔离规则保持不变。
+
 状态使用与 `10m/...` 相同的所选额度消耗计算，按未四舍五入的数值判断；与本地 Token 历史无关。成功刷新且消耗仍为 0 时保持非活跃；过去的消耗移出 10 分钟统计窗口后会切换为空闲。统计窗口以最后一次有效采样为终点；刷新失败或数据过期会切换为未知状态。状态在每次刷新及约每 15 秒检查时更新，不受括号时段和紧凑模式设置影响。旧版的绿色／蓝色、表情选择会原样保留，判定条件更新为近期消耗。
 
 - **首次运行需要积累数据**：完整的 10 分钟 / 1 小时统计，需要对应长度的采样历史，不回推安装前的使用量。
 - **账户级统计**：反映同一账户的额度变化，也可能包含其他设备上的使用，并非只统计当前 Mac。
 - **采样精度有限**：刷新间隔、服务端更新延迟和返回百分比的粒度都会影响精度。统计边界处于两次有效采样间时，使用线性估算。
-- **休眠或断网会出现缺口**：App 无法在电脑休眠、退出或网络不可用时完成采样；恢复后刷新。缺口、重置或调整移出所选时段后，统计自动恢复。
+- **休眠或断网会出现缺口**：App 无法在电脑休眠、退出或网络不可用时完成采样；恢复后刷新。采样缺口移出所选时段后，统计自动恢复。额度重置按下述规则保留可比较区间。
 - **周期以接口为准**：`primary` 可能是周额度，不能固定当作 5 小时额度。
 
 ## 本地 Token 历史
@@ -230,6 +232,7 @@ swift test
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/local-tokens-zh.png --language zh --local-preview
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/pricing-partial.png --language zh --local-preview --partial-pricing --preview-scroll-end
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/reset-zh.png --language zh --quota-reset-preview
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language zh
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/dot-options.png --language zh --dot-options

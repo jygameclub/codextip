@@ -115,23 +115,25 @@ Automatic discovery checks Codex / ChatGPT apps in `/Applications` and `~/Applic
 | --- | --- |
 | Active (green / 🙂 by default) | Estimated consumption of the selected quota in the last 10 minutes is > 0; successful polling alone is insufficient |
 | Idle (blue / 😴 by default) | Estimated consumption in the last 10 minutes is ≤ 0, such as `10m/0%` |
-| Unknown (blue / 😴 by default) | Stale data, insufficient samples, a gap, or reset; explicitly labeled unavailable rather than counted as zero |
+| Unknown (blue / 😴 by default) | Stale data, insufficient samples, a gap, or zero known usage across a reset; explicitly labeled unavailable rather than treated as a complete zero |
 | `84%` | 84% of the selected quota remains |
 | `10m/1%` | An estimated 1 percentage point of the total quota was consumed in the last 10 minutes |
 | `10m/1%*` | Partial history; only the recorded portion is included. The panel shows how many minutes are covered |
-| `—` | No reliable estimate yet: startup, missing data or identity, sampling gap, or a reset during the period |
+| `—` | No reliable estimate yet: startup, missing data or identity, a sampling gap, or only an incomparable pair spanning a reset |
 | `· stale` / `· 旧` | Refresh failed or data expired; the displayed quota is the last successful reading |
 
 The menu bar uses `10m/1%`: period on the left of `/`, estimated consumption on the right. The approximation sign is omitted to save space; the panel still shows `≈1%`, and `*` / `—` retain their meanings. Size and color changes take effect immediately and are saved. The panel and tooltip use the selected color name.
 
 For example, used quota increasing from **15% to 16%** counts as **1 percentage point consumed**, not a relative percentage change in used or remaining quota.
 
+**Recent statistics survive resets:** when the ten-minute estimate is available, the hour no longer disappears solely because it spans a quota reset. The app sums comparable intervals before and after resets/adjustments, skips each pair spanning a reset, and displays values such as `1h/7.4%*`. The panel explains the exclusion and shows covered minutes. Refills are never counted as consumption, and usage during excluded intervals is not guessed. With only an incomparable reset pair, the result remains `—`. Zero known consumption displays `0%*` and keeps activity unknown, since excluded usage is unknown. Normal display resumes when the reset leaves the window. Resets do not delete history; missing-data, sampling-gap, duration-change, and account-isolation rules are unchanged.
+
 Status uses the same selected-quota calculation as `10m/...`, before rounding, independently of local token history. Successful polling with zero consumption stays inactive; status returns to idle when past consumption leaves the ten-minute comparison window. The window ends at the latest sample. Failed refreshes or stale data produce an unknown state. Status is checked on refresh and approximately every 15 seconds, regardless of compact mode or selected display periods. Existing colors and emoji are preserved; their trigger now follows consumption.
 
 - **History starts when the app runs.** A full 10-minute or 1-hour comparison needs that much sampling history. Usage before installation is not reconstructed.
 - **Account-wide consumption.** Changes may include usage from other devices using the same account, not just this Mac.
 - **Sampling has limited precision.** Refresh frequency, server update delays, and the granularity of returned percentages affect the estimate. A boundary between two valid samples is linearly interpolated.
-- **Sleep and network outages create gaps.** No successful sampling occurs while the Mac is asleep, the app is closed, or the network is unavailable. Refresh resumes afterwards. Comparisons recover once gaps, resets, or adjustments fall outside the selected period.
+- **Sleep and network outages create gaps.** No successful sampling occurs while the Mac is asleep, the app is closed, or the network is unavailable. Refresh resumes afterwards. Comparisons recover once sampling gaps fall outside the selected period. Quota resets retain comparable intervals as described above.
 - **Quota windows come from the API.** The primary window may be weekly; it is not assumed to be five hours.
 
 ## Local token history
@@ -228,6 +230,7 @@ Render a demonstration dashboard offscreen, without opening a foreground window 
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/local-tokens-en.png --language en --local-preview
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/pricing-partial.png --language en --local-preview --partial-pricing --preview-scroll-end
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-en.png --language en
+./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/reset-en.png --language en --quota-reset-preview
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-preview dist/preview-zh.png --language zh --dark
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/menu-status.png --language en
 ./dist/CodexTip.app/Contents/MacOS/CodexTip --render-menu-preview dist/dot-options.png --language en --dot-options
