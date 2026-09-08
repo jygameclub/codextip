@@ -136,6 +136,9 @@ Status uses the same selected-quota calculation as `10m/...`, before rounding, i
 - **Sleep and network outages create gaps.** No successful sampling occurs while the Mac is asleep, the app is closed, or the network is unavailable. Refresh resumes afterwards. Comparisons recover once sampling gaps fall outside the selected period. Quota resets retain comparable intervals as described above.
 - **Quota windows come from the API.** The primary window may be weekly; it is not assumed to be five hours.
 
+
+A sudden return to 100% remaining (zero used) is treated as a reset/adjustment even if the server reset timestamp stays unchanged. Refills never count as negative consumption; comparable intervals before and after the reset are summed and marked with `*` as a partial estimate.
+
 ## Local token history
 
 Click the menu bar → **Local tokens**. The default is the last 7 calendar days, including today. Choose Today, 30 days, or All. Today uses hourly bars; 7 / 30 days use daily bars; All switches to monthly bars beyond 60 days. Dates use your Mac’s local timezone. Empty bars mean no recorded usage in that bucket.

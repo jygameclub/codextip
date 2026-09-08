@@ -105,6 +105,33 @@ final class UsageTests: XCTestCase {
         XCTAssertEqual(history.samples.count, 61)
     }
 
+    func testRefillTo100PercentWithoutResetTimestampChange() {
+        var history = UsageHistory()
+        // Remaining quota: 20%, 15%, 100%, 97%. A refill is not negative usage.
+        history.append(sample(0, 80)); history.append(sample(1, 85))
+        history.append(sample(2, 0)); history.append(sample(3, 3))
+        XCTAssertEqual(delta(history, minutes: 60), .resetPartial(points: 8, coverage: 120))
+        XCTAssertEqual(history.latest?.windows.first?.window.remaining, 97)
+    }
+
+    func testRefillTo100PercentKeepsHourAndRecentTenMinutes() {
+        var history = UsageHistory()
+        for minute in 0...60 {
+            history.append(sample(Double(minute), minute < 40
+                ? 20 + Double(minute) : Double(minute - 40)))
+        }
+        measured(delta(history), points: 10)
+        XCTAssertEqual(delta(history, minutes: 60), .resetPartial(points: 59, coverage: 3540))
+    }
+
+    func testRefillAloneDoesNotInventZeroConsumption() {
+        var history = UsageHistory()
+        history.append(sample(0, 85)); history.append(sample(1, 0))
+        XCTAssertEqual(delta(history), .unavailable("期间额度已重置或调整"))
+        history.append(sample(2, 2))
+        XCTAssertEqual(delta(history), .resetPartial(points: 2, coverage: 60))
+    }
+
     func testResetNotReportedAsZero() {
         var history = UsageHistory()
         history.append(sample(0, 90))
